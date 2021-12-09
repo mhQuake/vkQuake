@@ -39,7 +39,6 @@ extern cvar_t r_clearcolor;
 extern cvar_t r_fastclear;
 extern cvar_t r_flatlightstyles;
 extern cvar_t gl_fullbrights;
-extern cvar_t gl_farclip;
 extern cvar_t r_waterquality;
 extern cvar_t r_waterwarp;
 extern cvar_t r_waterwarpcompute;
@@ -2629,7 +2628,6 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_drawworld);
 	Cvar_RegisterVariable (&r_showtris);
 	Cvar_RegisterVariable (&r_showbboxes);
-	Cvar_RegisterVariable (&gl_farclip);
 	Cvar_RegisterVariable (&gl_fullbrights);
 	Cvar_RegisterVariable (&r_lerpmodels);
 	Cvar_RegisterVariable (&r_lerpmove);

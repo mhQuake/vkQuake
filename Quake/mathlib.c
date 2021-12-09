@@ -426,6 +426,14 @@ void VectorScale (vec3_t in, vec_t scale, vec3_t out)
 }
 
 
+float VectorDist (const float *v1, const float *v2)
+{
+	float dist[3];
+	VectorSubtract (v1, v2, dist);
+	return VectorLength (dist);
+}
+
+
 int Q_log2(int val)
 {
 	int answer=0;

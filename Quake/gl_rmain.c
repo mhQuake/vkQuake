@@ -84,7 +84,6 @@ cvar_t	r_clearcolor = {"r_clearcolor","2",CVAR_ARCHIVE};
 cvar_t	r_fastclear = {"r_fastclear","1",CVAR_ARCHIVE};
 cvar_t	r_flatlightstyles = {"r_flatlightstyles", "0", CVAR_NONE};
 cvar_t	gl_fullbrights = {"gl_fullbrights", "1", CVAR_ARCHIVE};
-cvar_t	gl_farclip = {"gl_farclip", "16384", CVAR_ARCHIVE};
 cvar_t	r_oldskyleaf = {"r_oldskyleaf", "0", CVAR_NONE};
 cvar_t	r_drawworld = {"r_drawworld", "1", CVAR_NONE};
 cvar_t	r_showtris = {"r_showtris", "0", CVAR_NONE};
@@ -108,6 +107,10 @@ float	map_fallbackalpha;
 qboolean r_drawworld_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe; //johnfitz
 
 cvar_t	r_scale = {"r_scale", "1", CVAR_ARCHIVE};
+
+
+float	gl_farclip = 16384.0f;
+
 
 /*
 =================
@@ -263,7 +266,7 @@ static void GL_FrustumMatrix(float matrix[16], float fovx, float fovy)
 	// reduce near clip distance at high FOV's to avoid seeing through walls
 	const float d = 12.f * q_min(w, h);
 	const float n = CLAMP(0.5f, d, NEARCLIP);
-	const float f = gl_farclip.value;
+	const float f = gl_farclip;
 
 	memset(matrix, 0, 16 * sizeof(float));
 
@@ -723,6 +726,38 @@ void R_RenderScene (void)
 	R_ShowBoundingBoxes (); //johnfitz
 }
 
+
+/*
+=============
+R_GetFarClip
+
+=============
+*/
+static float R_GetFarClip (void)
+{
+	// don't go below the standard Quake farclip
+	float farclip = 4096.0f;
+	int i;
+
+	// this provides the maximum far clip per view position and worldmodel bounds
+	for (i = 0; i < 8; i++)
+	{
+		float dist;
+		vec3_t corner;
+
+		// get this corner point
+		if (i & 1) corner[0] = cl.worldmodel->mins[0]; else corner[0] = cl.worldmodel->maxs[0];
+		if (i & 2) corner[1] = cl.worldmodel->mins[1]; else corner[1] = cl.worldmodel->maxs[1];
+		if (i & 4) corner[2] = cl.worldmodel->mins[2]; else corner[2] = cl.worldmodel->maxs[2];
+
+		if ((dist = VectorDist (r_refdef.vieworg, corner)) > farclip)
+			farclip = dist;
+	}
+
+	return farclip;
+}
+
+
 /*
 ================
 R_RenderView
@@ -734,6 +769,8 @@ void R_RenderView (void)
 
 	if (!cl.worldmodel)
 		Sys_Error ("R_RenderView: NULL worldmodel");
+
+	gl_farclip = R_GetFarClip ();
 
 	time1 = 0; /* avoid compiler warning */
 	if (r_speeds.value)

@@ -41,7 +41,8 @@ char	skybox_name[1024]; //name of current skybox, or "" if no skybox
 gltexture_t	*skybox_textures[6];
 gltexture_t	*solidskytexture, *alphaskytexture;
 
-extern cvar_t gl_farclip;
+extern float gl_farclip;
+
 cvar_t r_fastsky = {"r_fastsky", "0", CVAR_NONE};
 cvar_t r_sky_quality = {"r_sky_quality", "12", CVAR_NONE};
 cvar_t r_skyalpha = {"r_skyalpha", "1", CVAR_NONE};
@@ -749,9 +750,9 @@ void Sky_EmitSkyBoxVertex (basicvertex_t * vertex, float s, float t, int axis)
 	int			j, k;
 	float		w, h;
 
-	b[0] = s * gl_farclip.value / sqrt(3.0);
-	b[1] = t * gl_farclip.value / sqrt(3.0);
-	b[2] = gl_farclip.value / sqrt(3.0);
+	b[0] = s * gl_farclip / sqrt(3.0);
+	b[1] = t * gl_farclip / sqrt(3.0);
+	b[2] = gl_farclip / sqrt(3.0);
 
 	for (j=0 ; j<3 ; j++)
 	{
@@ -846,9 +847,9 @@ void Sky_SetBoxVert (float s, float t, int axis, vec3_t v)
 	vec3_t		b;
 	int			j, k;
 
-	b[0] = s * gl_farclip.value / sqrt(3.0);
-	b[1] = t * gl_farclip.value / sqrt(3.0);
-	b[2] = gl_farclip.value / sqrt(3.0);
+	b[0] = s * gl_farclip / sqrt(3.0);
+	b[1] = t * gl_farclip / sqrt(3.0);
+	b[2] = gl_farclip / sqrt(3.0);
 
 	for (j=0 ; j<3 ; j++)
 	{
