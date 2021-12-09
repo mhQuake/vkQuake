@@ -38,8 +38,6 @@ cvar_t	cmdline = {"cmdline","",CVAR_ROM/*|CVAR_SERVERINFO*/}; /* sending cmdline
 
 static qboolean		com_modified;	// set true if using non-id files
 
-qboolean		fitzmode;
-
 static void COM_Path_f (void);
 
 // if a packfile directory differs from this, it is assumed to be hacked
@@ -1709,9 +1707,6 @@ void COM_Init (void)
 		LittleFloat = FloatNoSwap;
 	}
 
-	if (COM_CheckParm("-fitz"))
-		fitzmode = true;
-
 	COM_SetupNullState();
 }
 
@@ -2356,7 +2351,7 @@ static void COM_AddGameDirectory (const char *dir)
 	int i;
 	unsigned int path_id;
 	searchpath_t *search;
-	pack_t *pak, *qspak;
+	pack_t *pak;
 	char pakfile[MAX_OSPATH];
 	qboolean been_here = false;
 
@@ -2395,26 +2390,10 @@ _add_path:
 	{
 		q_snprintf (pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
 		pak = COM_LoadPackFile (pakfile);
-		if (i != 0 || path_id != 1 || fitzmode)
-			qspak = NULL;
-		else {
-			qboolean old = com_modified;
-			if (been_here) base = host_parms->userdir;
-			q_snprintf (pakfile, sizeof(pakfile), "%s/vkquake.pak", base);
-			qspak = COM_LoadPackFile (pakfile);
-			com_modified = old;
-		}
 		if (pak) {
 			search = (searchpath_t *) Z_Malloc(sizeof(searchpath_t));
 			search->path_id = path_id;
 			search->pack = pak;
-			search->next = com_searchpaths;
-			com_searchpaths = search;
-		}
-		if (qspak) {
-			search = (searchpath_t *) Z_Malloc(sizeof(searchpath_t));
-			search->path_id = path_id;
-			search->pack = qspak;
 			search->next = com_searchpaths;
 			com_searchpaths = search;
 		}
