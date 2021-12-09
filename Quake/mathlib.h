@@ -34,6 +34,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define M_PI_DIV_180 (M_PI / 180.0) //johnfitz
 
+#define DEG2RAD(a) (((a) * M_PI) / 180.0)
+#define RAD2DEG(a) (((a) * 180.0) / M_PI)
+
 struct mplane_s;
 
 extern vec3_t vec3_origin;

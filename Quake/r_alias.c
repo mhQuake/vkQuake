@@ -410,21 +410,14 @@ void R_DrawAliasModel (entity_t *e)
 	IdentityMatrix(model_matrix);
 	R_RotateForEntity (model_matrix, lerpdata.origin, lerpdata.angles);
 
-	float fovscale = 1.0f;
-	if (e == &cl.viewent && scr_fov.value > 90.f && cl_gun_fovscale.value)
-	{
-		fovscale = tan(scr_fov.value * (0.5f * M_PI / 180.f));
-		fovscale = 1.f + (fovscale - 1.f) * cl_gun_fovscale.value;
-	}
-
 	float translation_matrix[16];
-	TranslationMatrix (translation_matrix, paliashdr->scale_origin[0], paliashdr->scale_origin[1] * fovscale, paliashdr->scale_origin[2] * fovscale);
-	MatrixMultiply(model_matrix, translation_matrix);
+	TranslationMatrix (translation_matrix, paliashdr->scale_origin[0], paliashdr->scale_origin[1], paliashdr->scale_origin[2]);
+	MatrixMultiply (model_matrix, translation_matrix);
 
 	// Scale multiplied by 255 because we use UNORM instead of USCALED in the vertex shader
 	float scale_matrix[16];
-	ScaleMatrix (scale_matrix, paliashdr->scale[0] * 255.0f, paliashdr->scale[1] * fovscale * 255.0f, paliashdr->scale[2] * fovscale * 255.0f);
-	MatrixMultiply(model_matrix, scale_matrix);
+	ScaleMatrix (scale_matrix, paliashdr->scale[0] * 255.0f, paliashdr->scale[1] * 255.0f, paliashdr->scale[2] * 255.0f);
+	MatrixMultiply (model_matrix, scale_matrix);
 
 	//
 	// random stuff
@@ -484,10 +477,37 @@ void R_DrawAliasModel (entity_t *e)
 		lightcolor[2] = 1.0f;
 	}
 
+	// adjust the MVP for the view entity
+	if (e == &cl.viewent)
+	{
+		// hack the depth range to prevent the viewmodel poking into walls
+		float gun_mvp_matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.3f, 0, 0, 0, 0, 1};
+
+		// apply projection matrix
+		MatrixMultiply (gun_mvp_matrix, vulkan_globals.projection_matrix);
+
+		// the gun with FOV > 90 looks like we're playing Wipeout, so let's fix that.
+		if (scr_fov.value > 90 && cl_gun_fovscale.value > 0)
+		{
+			float fovscale = tan (DEG2RAD (scr_fov.value) * 0.5f);
+			fovscale = 1.0f + (fovscale - 1.0f) * cl_gun_fovscale.value;
+			float r_viewmodel_scale[16] = {fovscale, 0, 0, 0, 0, fovscale, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+			MatrixMultiply (gun_mvp_matrix, r_viewmodel_scale);
+		}
+
+		// build the new MVP for the gun model
+		MatrixMultiply (gun_mvp_matrix, vulkan_globals.view_matrix);
+		R_PushConstants (VK_SHADER_STAGE_ALL_GRAPHICS, 0, 16 * sizeof (float), gun_mvp_matrix);
+	}
+
 	//
 	// draw it
 	//
 	GL_DrawAliasFrame (paliashdr, lerpdata, tx, fb, model_matrix, entalpha, alphatest);
+
+	// restore the original MVP
+	if (e == &cl.viewent)
+		R_PushConstants (VK_SHADER_STAGE_ALL_GRAPHICS, 0, 16 * sizeof (float), vulkan_globals.view_projection_matrix);
 }
 
 //johnfitz -- values for shadow matrix
