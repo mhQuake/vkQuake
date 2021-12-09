@@ -65,7 +65,7 @@ cvar_t	gl_cshiftpercent_damage = {"gl_cshiftpercent_damage", "100", CVAR_NONE}; 
 cvar_t	gl_cshiftpercent_bonus = {"gl_cshiftpercent_bonus", "100", CVAR_NONE}; // QuakeSpasm
 cvar_t	gl_cshiftpercent_powerup = {"gl_cshiftpercent_powerup", "100", CVAR_NONE}; // QuakeSpasm
 
-cvar_t	r_viewmodel_quake = {"r_viewmodel_quake", "0", CVAR_ARCHIVE};
+cvar_t	r_viewmodel_quake = {"r_viewmodel_quake", "1", CVAR_ARCHIVE};
 
 float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
 
@@ -818,16 +818,7 @@ void V_CalcRefdef (void)
 	//johnfitz -- removed all gun position fudging code (was used to keep gun from getting covered by sbar)
 	//MarkV -- restored this with r_viewmodel_quake cvar
 	if (r_viewmodel_quake.value)
-	{
-		if (scr_viewsize.value == 110)
-			view->origin[2] += 1;
-		else if (scr_viewsize.value == 100)
-			view->origin[2] += 2;
-		else if (scr_viewsize.value == 90)
-			view->origin[2] += 1;
-		else if (scr_viewsize.value == 80)
-			view->origin[2] += 0.5;
-	}
+		view->origin[2] += 2;
 
 	view->model = cl.model_precache[cl.stats[STAT_WEAPON]];
 	view->frame = cl.stats[STAT_WEAPONFRAME];
