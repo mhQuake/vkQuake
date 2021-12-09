@@ -2585,10 +2585,15 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 	Cmd_AddCommand ("game", COM_Game_f); //johnfitz
 
 	i = COM_CheckParm ("-basedir");
+#ifdef _DEBUG
+	// set basedir for debugging
+	q_strlcpy (com_basedir, "C:\\Games\\Q1", sizeof (com_basedir));
+#else
 	if (i && i < com_argc-1)
 		q_strlcpy (com_basedir, com_argv[i + 1], sizeof(com_basedir));
 	else
 		q_strlcpy (com_basedir, host_parms->basedir, sizeof(com_basedir));
+#endif
 
 	j = strlen (com_basedir);
 	if (j < 1) Sys_Error("Bad argument to -basedir");
