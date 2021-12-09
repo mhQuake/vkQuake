@@ -53,5 +53,7 @@ void IN_Activate ();
 // called when the app becomes inactive
 void IN_Deactivate (qboolean free_cursor);
 
+qboolean IN_MouseLooking (void);
+
 #endif	/* _QUAKE_INPUT_H */
 

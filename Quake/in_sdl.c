@@ -30,6 +30,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static qboolean	textmode;
 
+static cvar_t freelook = {"freelook", "1", CVAR_ARCHIVE};
+
+qboolean IN_MouseLooking (void)
+{
+	return ((in_mlook.state & 1) || freelook.value);
+}
+
 static cvar_t in_debugkeys = {"in_debugkeys", "0", CVAR_NONE};
 
 // SDL2 Game Controller cvars
@@ -204,6 +211,8 @@ void IN_Init (void)
 		/* discard all mouse events when input is deactivated */
 		IN_BeginIgnoringMouseEvents();
 	}
+
+	Cvar_RegisterVariable (&freelook);
 
 	Cvar_RegisterVariable(&in_debugkeys);
 	Cvar_RegisterVariable(&joy_sensitivity_yaw);
@@ -538,18 +547,18 @@ void IN_MouseMove(usercmd_t *cmd)
 	total_dx = 0;
 	total_dy = 0;
 
-	if ( (in_strafe.state & 1) || (lookstrafe.value && (in_mlook.state & 1) ))
+	if ( (in_strafe.state & 1) || (lookstrafe.value && IN_MouseLooking () ))
 		cmd->sidemove += m_side.value * dmx;
 	else
 		cl.viewangles[YAW] -= m_yaw.value * dmx;
 
-	if (in_mlook.state & 1)
+	if (IN_MouseLooking ())
 	{
 		if (dmx || dmy)
 			V_StopPitchDrift ();
 	}
 
-	if ( (in_mlook.state & 1) && !(in_strafe.state & 1))
+	if (IN_MouseLooking () && !(in_strafe.state & 1))
 	{
 		cl.viewangles[PITCH] += m_pitch.value * dmy;
 		/* johnfitz -- variable pitch clamping */
