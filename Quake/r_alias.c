@@ -377,6 +377,42 @@ void R_SetupAliasLighting (entity_t	*e)
 	VectorScale (lightcolor, 1.0f / 200.0f, lightcolor);
 }
 
+
+void R_SetAliasMVP (entity_t *e)
+{
+	// adjust the MVP for the view entity
+	if (e == &cl.viewent)
+	{
+		// hack the depth range to prevent the viewmodel poking into walls
+		float gun_mvp_matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.3f, 0, 0, 0, 0, 1};
+
+		// apply projection matrix
+		MatrixMultiply (gun_mvp_matrix, vulkan_globals.projection_matrix);
+
+		// the gun with FOV > 90 looks like we're playing Wipeout, so let's fix that.
+		if (scr_fov.value > 90 && cl_gun_fovscale.value > 0)
+		{
+			float fovscale = tan (DEG2RAD (scr_fov.value) * 0.5f);
+			fovscale = 1.0f + (fovscale - 1.0f) * cl_gun_fovscale.value;
+			float r_viewmodel_scale[16] = {fovscale, 0, 0, 0, 0, fovscale, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+			MatrixMultiply (gun_mvp_matrix, r_viewmodel_scale);
+		}
+
+		// build the new MVP for the gun model
+		MatrixMultiply (gun_mvp_matrix, vulkan_globals.view_matrix);
+		R_PushConstants (VK_SHADER_STAGE_ALL_GRAPHICS, 0, 16 * sizeof (float), gun_mvp_matrix);
+	}
+}
+
+
+void R_RestoreAliasMVP (entity_t *e)
+{
+	// restore the original MVP
+	if (e == &cl.viewent)
+		R_PushConstants (VK_SHADER_STAGE_ALL_GRAPHICS, 0, 16 * sizeof (float), vulkan_globals.view_projection_matrix);
+}
+
+
 /*
 =================
 R_DrawAliasModel -- johnfitz -- almost completely rewritten
@@ -478,27 +514,7 @@ void R_DrawAliasModel (entity_t *e)
 	}
 
 	// adjust the MVP for the view entity
-	if (e == &cl.viewent)
-	{
-		// hack the depth range to prevent the viewmodel poking into walls
-		float gun_mvp_matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.3f, 0, 0, 0, 0, 1};
-
-		// apply projection matrix
-		MatrixMultiply (gun_mvp_matrix, vulkan_globals.projection_matrix);
-
-		// the gun with FOV > 90 looks like we're playing Wipeout, so let's fix that.
-		if (scr_fov.value > 90 && cl_gun_fovscale.value > 0)
-		{
-			float fovscale = tan (DEG2RAD (scr_fov.value) * 0.5f);
-			fovscale = 1.0f + (fovscale - 1.0f) * cl_gun_fovscale.value;
-			float r_viewmodel_scale[16] = {fovscale, 0, 0, 0, 0, fovscale, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-			MatrixMultiply (gun_mvp_matrix, r_viewmodel_scale);
-		}
-
-		// build the new MVP for the gun model
-		MatrixMultiply (gun_mvp_matrix, vulkan_globals.view_matrix);
-		R_PushConstants (VK_SHADER_STAGE_ALL_GRAPHICS, 0, 16 * sizeof (float), gun_mvp_matrix);
-	}
+	R_SetAliasMVP (e);
 
 	//
 	// draw it
@@ -506,8 +522,7 @@ void R_DrawAliasModel (entity_t *e)
 	GL_DrawAliasFrame (paliashdr, lerpdata, tx, fb, model_matrix, entalpha, alphatest);
 
 	// restore the original MVP
-	if (e == &cl.viewent)
-		R_PushConstants (VK_SHADER_STAGE_ALL_GRAPHICS, 0, 16 * sizeof (float), vulkan_globals.view_projection_matrix);
+	R_RestoreAliasMVP (e);
 }
 
 //johnfitz -- values for shadow matrix
@@ -548,20 +563,13 @@ void R_DrawAliasModel_ShowTris (entity_t *e)
 	IdentityMatrix(model_matrix);
 	R_RotateForEntity (model_matrix, lerpdata.origin, lerpdata.angles);
 
-	float fovscale = 1.0f;
-	if (e == &cl.viewent && scr_fov.value > 90.f)
-	{
-		fovscale = tan(scr_fov.value * (0.5f * M_PI / 180.f));
-		fovscale = 1.f + (fovscale - 1.f) * cl_gun_fovscale.value;
-	}
-
 	float translation_matrix[16];
-	TranslationMatrix (translation_matrix, paliashdr->scale_origin[0], paliashdr->scale_origin[1] * fovscale, paliashdr->scale_origin[2] * fovscale);
+	TranslationMatrix (translation_matrix, paliashdr->scale_origin[0], paliashdr->scale_origin[1], paliashdr->scale_origin[2]);
 	MatrixMultiply(model_matrix, translation_matrix);
 
 	// Scale multiplied by 255 because we use UNORM instead of USCALED in the vertex shader
 	float scale_matrix[16];
-	ScaleMatrix (scale_matrix, paliashdr->scale[0] * 255.0f, paliashdr->scale[1] * fovscale * 255.0f, paliashdr->scale[2] * fovscale * 255.0f);
+	ScaleMatrix (scale_matrix, paliashdr->scale[0] * 255.0f, paliashdr->scale[1] * 255.0f, paliashdr->scale[2] * 255.0f);
 	MatrixMultiply(model_matrix, scale_matrix);
 
 	if (r_showtris.value == 1)
@@ -573,6 +581,8 @@ void R_DrawAliasModel_ShowTris (entity_t *e)
 		blend = lerpdata.blend;
 	else // poses the same means either 1. the entity has paused its animation, or 2. r_lerpmodels is disabled
 		blend = 0;
+
+	R_SetAliasMVP (e);
 
 	VkBuffer uniform_buffer;
 	uint32_t uniform_offset;
@@ -595,4 +605,6 @@ void R_DrawAliasModel_ShowTris (entity_t *e)
 	vulkan_globals.vk_cmd_bind_index_buffer(vulkan_globals.command_buffer, currententity->model->index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
 	vulkan_globals.vk_cmd_draw_indexed(vulkan_globals.command_buffer, paliashdr->numindexes, 1, 0, 0, 0);
+
+	R_RestoreAliasMVP (e);
 }
