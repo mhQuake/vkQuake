@@ -44,8 +44,6 @@ gltexture_t		*notexture, *nulltexture, *whitetexture, *greytexture;
 unsigned int d_8to24table[256];
 unsigned int d_8to24table_fbright[256];
 unsigned int d_8to24table_fbright_fence[256];
-unsigned int d_8to24table_nobright[256];
-unsigned int d_8to24table_nobright_fence[256];
 unsigned int d_8to24table_conchars[256];
 unsigned int d_8to24table_shirt[256];
 unsigned int d_8to24table_pants[256];
@@ -323,7 +321,7 @@ void TexMgr_LoadPalette (void)
 	}
 	((byte *) &d_8to24table[255]) [3] = 0;
 
-	//fullbright palette, 0-223 are black (for additive blending)
+	//fullbright palette, 0-223 are black (for maximum blending)
 	src = pal + 224*3;
 	dst = (byte *) &d_8to24table_fbright[224];
 	for (i = 224; i < 256; i++)
@@ -340,30 +338,9 @@ void TexMgr_LoadPalette (void)
 		dst[2] = dst[1] = dst[0] = 0;
 	}
 
-	//nobright palette, 224-255 are black (for additive blending)
-	dst = (byte *)d_8to24table_nobright;
-	src = pal;
-	for (i = 0; i < 256; i++)
-	{
-		*dst++ = *src++;
-		*dst++ = *src++;
-		*dst++ = *src++;
-		*dst++ = 255;
-	}
-	for (i = 224; i < 256; i++)
-	{
-		dst = (byte *) &d_8to24table_nobright[i];
-		dst[3] = 255;
-		dst[2] = dst[1] = dst[0] = 0;
-	}
-
 	//fullbright palette, for fence textures
 	memcpy(d_8to24table_fbright_fence, d_8to24table_fbright, 256*4);
 	d_8to24table_fbright_fence[255] = 0; // Alpha of zero.
-
-	//nobright palette, for fence textures
-	memcpy(d_8to24table_nobright_fence, d_8to24table_nobright, 256*4);
-	d_8to24table_nobright_fence[255] = 0; // Alpha of zero.
 
 	//conchars palette, 0 and 255 are transparent
 	memcpy(d_8to24table_conchars, d_8to24table, 256*4);
@@ -862,13 +839,6 @@ static void TexMgr_LoadImage8 (gltexture_t *glt, byte *data)
 		else
 			usepal = d_8to24table_fbright;
 	}
-	else if (glt->flags & TEXPREF_NOBRIGHT && gl_fullbrights.value)
-	{
-		if (glt->flags & TEXPREF_ALPHA)
-			usepal = d_8to24table_nobright_fence;
-		else
-			usepal = d_8to24table_nobright;
-	}
 	else if (glt->flags & TEXPREF_CONCHARS)
 	{
 		usepal = d_8to24table_conchars;
@@ -1103,19 +1073,6 @@ invalid:	Con_Printf ("TexMgr_ReloadImage: invalid source for %s\n", glt->name);
 	Hunk_FreeToLowMark(mark);
 }
 
-/*
-================
-TexMgr_ReloadNobrightImages -- reloads all texture that were loaded with the nobright palette.  called when gl_fullbrights changes
-================
-*/
-void TexMgr_ReloadNobrightImages (void)
-{
-	gltexture_t *glt;
-
-	for (glt = active_gltextures; glt; glt = glt->next)
-		if (glt->flags & TEXPREF_NOBRIGHT)
-			TexMgr_ReloadImage(glt, -1, -1);
-}
 
 /*
 ================================================================================

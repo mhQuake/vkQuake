@@ -34,7 +34,7 @@ void main()
 	if (use_fullbright)
 	{
 		vec3 fullbright = texture(fullbright_tex, in_texcoords.xy).rgb;
-		out_frag_color.rgb += fullbright;
+		out_frag_color.rgb = max (fullbright, out_frag_color.rgb);
 	}
 
 	float fog = exp(-push_constants.fog_density * push_constants.fog_density * in_fog_frag_coord * in_fog_frag_coord);

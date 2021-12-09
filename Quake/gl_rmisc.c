@@ -172,15 +172,6 @@ int GL_MemoryTypeFromProperties(uint32_t type_bits, VkFlags requirements_mask, V
 	return 0;
 }
 
-/*
-====================
-GL_Fullbrights_f -- johnfitz
-====================
-*/
-static void GL_Fullbrights_f (cvar_t *var)
-{
-	TexMgr_ReloadNobrightImages ();
-}
 
 /*
 ====================
@@ -2640,7 +2631,6 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_showbboxes);
 	Cvar_RegisterVariable (&gl_farclip);
 	Cvar_RegisterVariable (&gl_fullbrights);
-	Cvar_SetCallback (&gl_fullbrights, GL_Fullbrights_f);
 	Cvar_RegisterVariable (&r_lerpmodels);
 	Cvar_RegisterVariable (&r_lerpmove);
 	Cvar_RegisterVariable (&r_nolerp_list);

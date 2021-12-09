@@ -651,7 +651,7 @@ void Mod_LoadTextures (lump_t *l)
 					if (Mod_CheckFullbrights ((byte *)(tx+1), pixels))
 					{
 						tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, tx->width, tx->height,
-							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_NOBRIGHT | extraflags);
+							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | extraflags);
 						q_snprintf (texturename, sizeof(texturename), "%s:%s_glow", loadmodel->name, tx->name);
 						tx->fullbright = TexMgr_LoadImage (loadmodel, texturename, tx->width, tx->height,
 							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_FULLBRIGHT | extraflags);
@@ -2694,7 +2694,7 @@ void *Mod_LoadAllSkins (int numskins, byte *pskintype)
 			if (Mod_CheckFullbrights (skin, size))
 			{
 				pheader->gltextures[i][0] = TexMgr_LoadImage (loadmodel, name, pheader->skinwidth, pheader->skinheight,
-					SRC_INDEXED, skin, loadmodel->name, offset, texflags | TEXPREF_MIPMAP | TEXPREF_NOBRIGHT);
+					SRC_INDEXED, skin, loadmodel->name, offset, texflags | TEXPREF_MIPMAP);
 				q_snprintf (fbr_mask_name, sizeof(fbr_mask_name), "%s:frame%i_glow", loadmodel->name, i);
 				pheader->fbtextures[i][0] = TexMgr_LoadImage (loadmodel, fbr_mask_name, pheader->skinwidth, pheader->skinheight,
 					SRC_INDEXED, skin, loadmodel->name, offset, texflags | TEXPREF_MIPMAP | TEXPREF_FULLBRIGHT);
@@ -2735,7 +2735,7 @@ void *Mod_LoadAllSkins (int numskins, byte *pskintype)
 				if (Mod_CheckFullbrights (skin, size))
 				{
 					pheader->gltextures[i][j&3] = TexMgr_LoadImage (loadmodel, name, pheader->skinwidth, pheader->skinheight,
-						SRC_INDEXED, skin, loadmodel->name, offset, texflags | TEXPREF_MIPMAP | TEXPREF_NOBRIGHT);
+						SRC_INDEXED, skin, loadmodel->name, offset, texflags | TEXPREF_MIPMAP);
 					q_snprintf (fbr_mask_name, sizeof(fbr_mask_name), "%s:frame%i_%i_glow", loadmodel->name, i,j);
 					pheader->fbtextures[i][j&3] = TexMgr_LoadImage (loadmodel, fbr_mask_name, pheader->skinwidth, pheader->skinheight,
 						SRC_INDEXED, skin, loadmodel->name, offset, texflags | TEXPREF_MIPMAP | TEXPREF_FULLBRIGHT);

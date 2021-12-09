@@ -34,7 +34,7 @@ void main()
 	result *= in_color * 2.0f;
 
 	if ((ubo.flags & 0x1) != 0)
-		result += texture(fullbright_tex, in_texcoord.xy);
+		result.rgb = max (result.rgb, texture(fullbright_tex, in_texcoord.xy).rgb);
 
 	result.a = ubo.entalpha;
 

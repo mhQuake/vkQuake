@@ -36,7 +36,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define TEXPREF_OVERWRITE		0x0040	// overwrite existing same-name texture
 #define TEXPREF_NOPICMIP		0x0080	// always load full-sized
 #define TEXPREF_FULLBRIGHT		0x0100	// use fullbright mask palette
-#define TEXPREF_NOBRIGHT		0x0200	// use nobright mask palette
 #define TEXPREF_CONCHARS		0x0400	// use conchars palette
 #define TEXPREF_WARPIMAGE		0x0800	// resize this texture when warpimagesize changes
 #define TEXPREF_PREMULTIPLY		0x1000	// rgb = rgb*a; a=a;
@@ -82,7 +81,6 @@ extern gltexture_t *greytexture;
 
 extern unsigned int d_8to24table[256];
 extern unsigned int d_8to24table_fbright[256];
-extern unsigned int d_8to24table_nobright[256];
 extern unsigned int d_8to24table_conchars[256];
 extern unsigned int d_8to24table_shirt[256];
 extern unsigned int d_8to24table_pants[256];
@@ -103,7 +101,6 @@ void TexMgr_CollectGarbage (void);
 gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int height, enum srcformat format,
 			       byte *data, const char *source_file, src_offset_t source_offset, unsigned flags);
 void TexMgr_ReloadImage (gltexture_t *glt, int shirt, int pants);
-void TexMgr_ReloadNobrightImages (void);
 
 void TexMgr_UpdateTextureDescriptorSets(void);
 
