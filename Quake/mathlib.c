@@ -606,6 +606,17 @@ fixed16_t Invert24To16(fixed16_t val)
 			(((double)0x10000 * (double)0x1000000 / (double)val) + 0.5);
 }
 
+
+void MatrixInverseTransform (float m[16], float out[3], const float in[3])
+{
+	// http://content.gpwiki.org/index.php/MathGem:Fast_Matrix_Inversion
+	// !!! out cannot be the same as in !!!
+	out[0] = in[0] * m[0] + in[1] * m[1] + in[2] * m[ 2] - DotProduct (&m[0], &m[12]);
+	out[1] = in[0] * m[4] + in[1] * m[5] + in[2] * m[ 6] - DotProduct (&m[4], &m[12]);
+	out[2] = in[0] * m[8] + in[1] * m[9] + in[2] * m[10] - DotProduct (&m[8], &m[12]);
+}
+
+
 /*
 ===================
 MatrixMultiply

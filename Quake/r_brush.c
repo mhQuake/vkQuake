@@ -177,8 +177,15 @@ void R_DrawBrushModel (entity_t *e)
 
 	psurf = &clmodel->surfaces[clmodel->firstmodelsurface];
 
-// calculate dynamic lighting for bmodel if it's not an
-// instanced model
+	// calc this before doing the MarkLights so that we can use this matrix to transform the light
+	e->angles[0] = -e->angles[0];	// stupid quake bug
+	float model_matrix[16];
+	IdentityMatrix (model_matrix);
+	R_RotateForEntity (model_matrix, e->origin, e->angles);
+	e->angles[0] = -e->angles[0];	// stupid quake bug
+
+	// calculate dynamic lighting for bmodel if it's not an
+	// instanced model
 	if (clmodel->firstmodelsurface != 0)
 	{
 		for (k=0 ; k<MAX_DLIGHTS ; k++)
@@ -187,16 +194,13 @@ void R_DrawBrushModel (entity_t *e)
 				(!cl_dlights[k].radius))
 				continue;
 
+			// move the light back to entity local space
+			MatrixInverseTransform (model_matrix, cl_dlights[k].transformed, cl_dlights[k].origin);
+
 			R_MarkLights (&cl_dlights[k], k,
 				clmodel->nodes + clmodel->hulls[0].firstclipnode);
 		}
 	}
-
-	e->angles[0] = -e->angles[0];	// stupid quake bug
-	float model_matrix[16];
-	IdentityMatrix(model_matrix);
-	R_RotateForEntity (model_matrix, e->origin, e->angles);
-	e->angles[0] = -e->angles[0];	// stupid quake bug
 
 	float mvp[16];
 	memcpy(mvp, vulkan_globals.view_projection_matrix, 16 * sizeof(float));
@@ -760,7 +764,7 @@ void R_AddDynamicLights (msurface_t *surf)
 			continue;		// not lit by this light
 
 		rad = cl_dlights[lnum].radius;
-		dist = DotProduct (cl_dlights[lnum].origin, surf->plane->normal) -
+		dist = DotProduct (cl_dlights[lnum].transformed, surf->plane->normal) -
 				surf->plane->dist;
 		rad -= fabs(dist);
 		minlight = cl_dlights[lnum].minlight;
@@ -770,7 +774,7 @@ void R_AddDynamicLights (msurface_t *surf)
 
 		for (i=0 ; i<3 ; i++)
 		{
-			impact[i] = cl_dlights[lnum].origin[i] -
+			impact[i] = cl_dlights[lnum].transformed[i] -
 					surf->plane->normal[i]*dist;
 		}
 

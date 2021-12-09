@@ -110,7 +110,7 @@ void AngleVectors (vec3_t angles, vec3_t forward, vec3_t right, vec3_t up);
 int BoxOnPlaneSide (vec3_t emins, vec3_t emaxs, struct mplane_s *plane);
 float	anglemod(float a);
 
-
+void MatrixInverseTransform (float m[16], float out[3], const float in[3]);
 void MatrixMultiply(float left[16], float right[16]);
 void RotationMatrix(float matrix[16], float angle, float x, float y, float z);
 void TranslationMatrix(float matrix[16], float x, float y, float z);

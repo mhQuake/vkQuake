@@ -91,9 +91,9 @@ start:
 
 	splitplane = node->plane;
 	if (splitplane->type < 3)
-		dist = light->origin[splitplane->type] - splitplane->dist;
+		dist = light->transformed[splitplane->type] - splitplane->dist;
 	else
-		dist = DotProduct (light->origin, splitplane->normal) - splitplane->dist;
+		dist = DotProduct (light->transformed, splitplane->normal) - splitplane->dist;
 
 	if (dist > light->radius)
 	{
@@ -112,7 +112,7 @@ start:
 	for (i=0 ; i<node->numsurfaces ; i++, surf++)
 	{
 		for (j=0 ; j<3 ; j++)
-			impact[j] = light->origin[j] - surf->plane->normal[j]*dist;
+			impact[j] = light->transformed[j] - surf->plane->normal[j]*dist;
 		// clamp center of light to corner and check brightness
 		l = DotProduct (impact, surf->texinfo->vecs[0]) + surf->texinfo->vecs[0][3] - surf->texturemins[0];
 		s = l+0.5;if (s < 0) s = 0;else if (s > surf->extents[0]) s = surf->extents[0];
@@ -157,6 +157,7 @@ void R_PushDlights(void)
 	{
 		if (l->die < cl.time || !l->radius)
 			continue;
+		VectorCopy (l->origin, l->transformed);
 		R_MarkLights(l, i, cl.worldmodel->nodes);
 	}
 }

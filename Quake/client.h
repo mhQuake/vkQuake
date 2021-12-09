@@ -70,6 +70,7 @@ typedef struct
 typedef struct
 {
 	vec3_t	origin;
+	vec3_t	transformed;
 	float	radius;
 	float	die;				// stop lighting after this time
 	float	decay;				// drop this each second
