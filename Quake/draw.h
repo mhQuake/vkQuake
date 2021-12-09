@@ -43,6 +43,7 @@ qpic_t *Draw_PicFromWad (const char *name);
 qpic_t *Draw_CachePic (const char *path);
 qpic_t *Draw_TryCachePic (const char *path, unsigned int texflags);
 void Draw_NewGame (void);
+void Draw_Crosshair (void);
 
 void GL_Viewport(float x, float y, float width, float height, float min_depth, float max_depth);
 void GL_SetCanvas (canvastype newcanvas); //johnfitz
