@@ -202,49 +202,42 @@ int SignbitsForPlane (mplane_t *out)
 	return bits;
 }
 
-/*
-===============
-TurnVector -- johnfitz
-
-turn forward towards side on the plane defined by forward and side
-if angle = 90, the result will be equal to side
-assumes side and forward are perpendicular, and normalized
-to turn away from side, use a negative angle
-===============
-*/
-void TurnVector (vec3_t out, const vec3_t forward, const vec3_t side, float angle)
-{
-	float scale_forward, scale_side;
-
-	scale_forward = cos( DEG2RAD( angle ) );
-	scale_side = sin( DEG2RAD( angle ) );
-
-	out[0] = scale_forward*forward[0] + scale_side*side[0];
-	out[1] = scale_forward*forward[1] + scale_side*side[1];
-	out[2] = scale_forward*forward[2] + scale_side*side[2];
-}
 
 /*
-===============
-R_SetFrustum -- johnfitz -- rewritten
-===============
+=============
+R_ExtractFrustum
+=============
 */
-void R_SetFrustum (float fovx, float fovy)
+static void R_ExtractFrustum (mplane_t *f, float *m)
 {
-	int		i;
+	int i;
 
-	TurnVector(frustum[0].normal, vpn, vright, fovx/2 - 90); //right plane
-	TurnVector(frustum[1].normal, vpn, vright, 90 - fovx/2); //left plane
-	TurnVector(frustum[2].normal, vpn, vup, 90 - fovy/2); //bottom plane
-	TurnVector(frustum[3].normal, vpn, vup, fovy/2 - 90); //top plane
+	// extract the frustum from the MVP matrix
+	f[0].normal[0] = m[ 3] - m[0];
+	f[0].normal[1] = m[ 7] - m[4];
+	f[0].normal[2] = m[11] - m[8];
 
-	for (i=0 ; i<4 ; i++)
+	f[1].normal[0] = m[ 3] + m[0];
+	f[1].normal[1] = m[ 7] + m[4];
+	f[1].normal[2] = m[11] + m[8];
+
+	f[2].normal[0] = m[ 3] + m[1];
+	f[2].normal[1] = m[ 7] + m[5];
+	f[2].normal[2] = m[11] + m[9];
+
+	f[3].normal[0] = m[ 3] - m[1];
+	f[3].normal[1] = m[ 7] - m[5];
+	f[3].normal[2] = m[11] - m[9];
+
+	for (i = 0; i < 4; i++)
 	{
-		frustum[i].type = PLANE_ANYZ;
-		frustum[i].dist = DotProduct (r_origin, frustum[i].normal); //FIXME: shouldn't this always be zero?
-		frustum[i].signbits = SignbitsForPlane (&frustum[i]);
+		VectorNormalize (f[i].normal);
+		f[i].dist = DotProduct (r_refdef.vieworg, f[i].normal);
+		f[i].type = PLANE_ANYZ;
+		f[i].signbits = SignbitsForPlane (&f[i]);
 	}
 }
+
 
 /*
 =============
@@ -291,15 +284,7 @@ void R_SetupMatrix (void)
 				r_refdef.vrect.height,
 				0.0f, 1.0f);
 
-	// Projection matrix
-	GL_FrustumMatrix(vulkan_globals.projection_matrix, DEG2RAD(r_fovx), DEG2RAD(r_fovy));
-
-	// View matrix
-	CameraMatrix (vulkan_globals.view_matrix, r_refdef.vieworg, r_refdef.viewangles);
-
-	// View projection matrix
-	memcpy(vulkan_globals.view_projection_matrix, vulkan_globals.projection_matrix, 16 * sizeof(float));
-	MatrixMultiply(vulkan_globals.view_projection_matrix, vulkan_globals.view_matrix);
+	// matrix setup moved to R_SetupView
 
 	R_BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan_globals.basic_blend_pipeline[render_pass_index]);
 	R_PushConstants(VK_SHADER_STAGE_ALL_GRAPHICS, 0, 16 * sizeof(float), vulkan_globals.view_projection_matrix);
@@ -335,7 +320,6 @@ void R_SetupView (void)
 
 // build the transformation matrix for the given view angles
 	VectorCopy (r_refdef.vieworg, r_origin);
-	AngleVectors (r_refdef.viewangles, vpn, vright, vup);
 
 // current viewleaf
 	r_oldviewleaf = r_viewleaf;
@@ -369,7 +353,24 @@ void R_SetupView (void)
 	}
 	//johnfitz
 
-	R_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
+	// Projection matrix
+	GL_FrustumMatrix (vulkan_globals.projection_matrix, DEG2RAD (r_fovx), DEG2RAD (r_fovy));
+
+	// View matrix
+	CameraMatrix (vulkan_globals.view_matrix, r_refdef.vieworg, r_refdef.viewangles);
+
+	// View projection matrix
+	memcpy (vulkan_globals.view_projection_matrix, vulkan_globals.projection_matrix, 16 * sizeof (float));
+	MatrixMultiply (vulkan_globals.view_projection_matrix, vulkan_globals.view_matrix);
+
+	// extract the frustum from the MVP
+	R_ExtractFrustum (frustum, vulkan_globals.view_projection_matrix);
+
+	// take these from the view matrix
+#define VectorSet(r,x,y,z) do{(r)[0] = x; (r)[1] = y;(r)[2] = z;}while(0)
+	VectorSet (vpn,    -vulkan_globals.view_matrix[2], -vulkan_globals.view_matrix[6], -vulkan_globals.view_matrix[10]);
+	VectorSet (vup,     vulkan_globals.view_matrix[1],  vulkan_globals.view_matrix[5],  vulkan_globals.view_matrix[9]);
+	VectorSet (vright,  vulkan_globals.view_matrix[0],  vulkan_globals.view_matrix[4],  vulkan_globals.view_matrix[8]);
 
 	R_MarkSurfaces (); //johnfitz -- create texture chains from PVS
 

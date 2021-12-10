@@ -75,7 +75,6 @@ static inline int IS_NAN (float x) {
 	}\
 }
 
-void TurnVector (vec3_t out, const vec3_t forward, const vec3_t side, float angle); //johnfitz
 void VectorAngles (const vec3_t forward, float *up, vec3_t angles); //johnfitz, spike(up is optional)
 
 void VectorMA (vec3_t veca, float scale, vec3_t vecb, vec3_t vecc);
