@@ -3377,7 +3377,7 @@ static void VID_MenuDraw (void)
 
 	// title
 	title = "Video Options";
-	M_PrintWhite ((320-8*strlen(title))/2, y, title);
+	M_Print ((320-8*strlen(title))/2, y, title);
 
 	y += 16;
 
@@ -3388,19 +3388,19 @@ static void VID_MenuDraw (void)
 		{
 		case VID_OPT_MODE:
 			M_Print (16, y, "        Video mode");
-			M_Print (184, y, va("%ix%i", (int)vid_width.value, (int)vid_height.value));
+			M_PrintWhite (184, y, va("%ix%i", (int)vid_width.value, (int)vid_height.value));
 			break;
 		case VID_OPT_BPP:
 			M_Print (16, y, "       Color depth");
-			M_Print (184, y, va("%i", (int)vid_bpp.value));
+			M_PrintWhite (184, y, va("%i", (int)vid_bpp.value));
 			break;
 		case VID_OPT_REFRESHRATE:
 			M_Print (16, y, "      Refresh rate");
-			M_Print (184, y, va("%i", (int)vid_refreshrate.value));
+			M_PrintWhite (184, y, va("%i", (int)vid_refreshrate.value));
 			break;
 		case VID_OPT_FULLSCREEN:
 			M_Print (16, y, "        Fullscreen");
-			M_Print (184, y, ((int)vid_fullscreen.value == 0) ? "off" : (((int)vid_fullscreen.value == 1)  ? "on" : "exclusive"));
+			M_PrintWhite (184, y, ((int)vid_fullscreen.value == 0) ? "off" : (((int)vid_fullscreen.value == 1)  ? "on" : "exclusive"));
 			break;
 		case VID_OPT_VSYNC:
 			M_Print (16, y, "     Vertical sync");
@@ -3409,37 +3409,37 @@ static void VID_MenuDraw (void)
 		case VID_OPT_MAX_FPS:
 			M_Print (16, y, "           Max FPS");
 			if (menu_settings.host_maxfps <= 0)
-				M_Print (184, y, "no limit");
+				M_PrintWhite (184, y, "no limit");
 			else
-				M_Print (184, y, va("%d", menu_settings.host_maxfps));
+				M_PrintWhite (184, y, va("%d", menu_settings.host_maxfps));
 			break;
 		case VID_OPT_ANTIALIASING_SAMPLES:
 			M_Print (16, y, "      Antialiasing");
-			M_Print (184, y, ((int)vid_fsaa.value >= 2) ? va("%ix", CLAMP(2, (int)vid_fsaa.value, 16)) : "off");
+			M_PrintWhite (184, y, ((int)vid_fsaa.value >= 2) ? va("%ix", CLAMP(2, (int)vid_fsaa.value, 16)) : "off");
 			break;
 		case VID_OPT_ANTIALIASING_MODE:
 			M_Print (16, y, "           AA Mode");
-			M_Print (184, y, ((int)vid_fsaamode.value == 0) ? "Multisample" : "Supersample");
+			M_PrintWhite (184, y, ((int)vid_fsaamode.value == 0) ? "Multisample" : "Supersample");
 			break;
 		case VID_OPT_RENDER_SCALE:
 			M_Print (16, y, "      Render Scale");
-			M_Print (184, y, (menu_settings.r_scale >= 2) ? va("1/%i", menu_settings.r_scale) : "off");
+			M_PrintWhite (184, y, (menu_settings.r_scale >= 2) ? va("1/%i", menu_settings.r_scale) : "off");
 			break;
 		case VID_OPT_FILTER:
 			M_Print (16, y, "          Textures");
-			M_Print (184, y, (menu_settings.vid_filter == 0) ? "smooth" : "classic");
+			M_PrintWhite (184, y, (menu_settings.vid_filter == 0) ? "smooth" : "classic");
 			break;
 		case VID_OPT_ANISOTROPY:
 			M_Print (16, y, "       Anisotropic");
-			M_Print (184, y, (menu_settings.vid_anisotropic == 0) ? "off" : va("on (%gx)", vulkan_globals.device_properties.limits.maxSamplerAnisotropy));
+			M_PrintWhite (184, y, (menu_settings.vid_anisotropic == 0) ? "off" : va("on (%gx)", vulkan_globals.device_properties.limits.maxSamplerAnisotropy));
 			break;
 		case VID_OPT_UNDERWATER:
 			M_Print (16, y, "     Underwater FX");
-			M_Print (184, y, (menu_settings.r_waterwarp == 0) ? "off" : ((menu_settings.r_waterwarp == 1)  ? "Classic" : "glQuake"));
+			M_PrintWhite (184, y, (menu_settings.r_waterwarp == 0) ? "off" : ((menu_settings.r_waterwarp == 1)  ? "Classic" : "glQuake"));
 			break;
 		case VID_OPT_PARTICLES:
 			M_Print (16, y, "         Particles");
-			M_Print (184, y, (menu_settings.r_particles == 0) ? "off" : ((menu_settings.r_particles == 2)  ? "Classic" : "glQuake"));
+			M_PrintWhite (184, y, (menu_settings.r_particles == 0) ? "off" : ((menu_settings.r_particles == 2)  ? "Classic" : "glQuake"));
 			break;
 		case VID_OPT_TEST:
 			y += 8; //separate the test and apply items

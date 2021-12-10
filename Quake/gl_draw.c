@@ -857,12 +857,14 @@ void Draw_TileClear (int x, int y, int w, int h)
 Draw_Fill
 
 Fills a box of pixels with a single color
+
+MH - OK, this was badly broken
 =============
 */
 void Draw_Fill (int x, int y, int w, int h, int c, float alpha) //johnfitz -- added alpha
 {
 	int i;
-	byte *pal = (byte *)d_8to24table; //johnfitz -- use d_8to24table instead of host_basepal
+	byte *rgb = (byte *) &d_8to24table[c]; //johnfitz -- use d_8to24table instead of host_basepal
 
 	VkBuffer buffer;
 	VkDeviceSize buffer_offset;
@@ -871,25 +873,25 @@ void Draw_Fill (int x, int y, int w, int h, int c, float alpha) //johnfitz -- ad
 	basicvertex_t corner_verts[4];
 	memset(&corner_verts, 0, sizeof(corner_verts));
 
-	corner_verts[0].position[0] = 0.0f;
-	corner_verts[0].position[1] = 0.0f;
+	corner_verts[0].position[0] = x;
+	corner_verts[0].position[1] = y;
 
-	corner_verts[1].position[0] = glwidth;
-	corner_verts[1].position[1] = 0.0f;
+	corner_verts[1].position[0] = x + w;
+	corner_verts[1].position[1] = y;
 
-	corner_verts[2].position[0] = glwidth;
-	corner_verts[2].position[1] = glheight;
+	corner_verts[2].position[0] = x + w;
+	corner_verts[2].position[1] = y + h;
 
-	corner_verts[3].position[0] = 0.0f;
-	corner_verts[3].position[1] = glheight;
+	corner_verts[3].position[0] = x;
+	corner_verts[3].position[1] = y + h;
 
 
 	for (i = 0; i < 4; ++i)
 	{
-		corner_verts[i].color[0] = pal[c*4]/255.0;
-		corner_verts[i].color[1] = pal[c*4+1]/255.0;
-		corner_verts[i].color[2] = pal[c*4+2]/255.0;
-		corner_verts[i].color[3] = alpha;
+		corner_verts[i].color[0] = rgb[0];
+		corner_verts[i].color[1] = rgb[1];
+		corner_verts[i].color[2] = rgb[2];
+		corner_verts[i].color[3] = (byte) (alpha * 255.0f);
 	}
 
 	vertices[0] = corner_verts[0];
