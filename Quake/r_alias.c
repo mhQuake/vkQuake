@@ -384,7 +384,7 @@ void R_SetAliasMVP (entity_t *e)
 	if (e == &cl.viewent)
 	{
 		// hack the depth range to prevent the viewmodel poking into walls
-		float gun_mvp_matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.3f, 0, 0, 0, 0, 1};
+		float gun_mvp_matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.3f, 0, 0, 0, 0.7f, 1};
 
 		// apply projection matrix
 		MatrixMultiply (gun_mvp_matrix, vulkan_globals.projection_matrix);
