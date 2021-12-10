@@ -177,11 +177,7 @@ void R_RotateForEntity (float matrix[16], vec3_t origin, vec3_t angles)
 	MatrixMultiply (matrix, translation_matrix);
 
 	float rotation_matrix[16];
-	RotationMatrix (rotation_matrix, DEG2RAD(angles[1]), 0, 0, 1);
-	MatrixMultiply (matrix, rotation_matrix);
-	RotationMatrix (rotation_matrix, DEG2RAD(-angles[0]), 0, 1, 0);
-	MatrixMultiply (matrix, rotation_matrix);
-	RotationMatrix (rotation_matrix, DEG2RAD(angles[2]), 1, 0, 0);
+	PitchYawRollMatrix (rotation_matrix, -angles[0], angles[1], angles[2]);
 	MatrixMultiply (matrix, rotation_matrix);
 }
 
@@ -299,20 +295,7 @@ void R_SetupMatrix (void)
 	GL_FrustumMatrix(vulkan_globals.projection_matrix, DEG2RAD(r_fovx), DEG2RAD(r_fovy));
 
 	// View matrix
-	float rotation_matrix[16];
-	RotationMatrix(vulkan_globals.view_matrix, -M_PI / 2.0f, 1.0f, 0.0f, 0.0f);
-	RotationMatrix(rotation_matrix,  M_PI / 2.0f, 0.0f, 0.0f, 1.0f);
-	MatrixMultiply(vulkan_globals.view_matrix, rotation_matrix);
-	RotationMatrix(rotation_matrix, DEG2RAD(-r_refdef.viewangles[2]), 1.0f, 0.0f, 0.0f);
-	MatrixMultiply(vulkan_globals.view_matrix, rotation_matrix);
-	RotationMatrix(rotation_matrix, DEG2RAD(-r_refdef.viewangles[0]), 0.0f, 1.0f, 0.0f);
-	MatrixMultiply(vulkan_globals.view_matrix, rotation_matrix);
-	RotationMatrix(rotation_matrix, DEG2RAD(-r_refdef.viewangles[1]), 0.0f, 0.0f, 1.0f);
-	MatrixMultiply(vulkan_globals.view_matrix, rotation_matrix);
-	
-	float translation_matrix[16];
-	TranslationMatrix(translation_matrix, -r_refdef.vieworg[0], -r_refdef.vieworg[1], -r_refdef.vieworg[2]);
-	MatrixMultiply(vulkan_globals.view_matrix, translation_matrix);
+	CameraMatrix (vulkan_globals.view_matrix, r_refdef.vieworg, r_refdef.viewangles);
 
 	// View projection matrix
 	memcpy(vulkan_globals.view_projection_matrix, vulkan_globals.projection_matrix, 16 * sizeof(float));

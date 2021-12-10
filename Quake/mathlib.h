@@ -116,6 +116,8 @@ void RotationMatrix(float matrix[16], float angle, float x, float y, float z);
 void TranslationMatrix(float matrix[16], float x, float y, float z);
 void ScaleMatrix(float matrix[16], float x, float y, float z);
 void IdentityMatrix(float matrix[16]);
+void CameraMatrix (float matrix[16], const float origin[3], const float angles[3]);
+void PitchYawRollMatrix (float matrix[16], float p, float y, float r);
 
 qboolean IsAxisAlignedDeg(vec3_t angle);
 qboolean IsOriginWithinMinMax(vec3_t origin, vec3_t mins, vec3_t maxs);

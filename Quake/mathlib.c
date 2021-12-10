@@ -676,6 +676,85 @@ void RotationMatrix(float matrix[16], float angle, float x, float y, float z)
 	matrix[3*4 + 3] = 1.0f;
 }
 
+
+/*
+=============
+PitchYawRollMatrix
+=============
+*/
+void PitchYawRollMatrix (float matrix[16], float p, float y, float r)
+{
+	float sr = sin (DEG2RAD (r));
+	float sp = sin (DEG2RAD (p));
+	float sy = sin (DEG2RAD (y));
+	float cr = cos (DEG2RAD (r));
+	float cp = cos (DEG2RAD (p));
+	float cy = cos (DEG2RAD (y));
+
+	matrix[0x0] = (cp * cy);
+	matrix[0x1] = (cp * sy);
+	matrix[0x2] = -sp;
+	matrix[0x3] = 0.0f;
+	matrix[0x4] = (cr * -sy) + (sr * sp * cy);
+	matrix[0x5] = (cr * cy) + (sr * sp * sy);
+	matrix[0x6] = (sr * cp);
+	matrix[0x7] = 0.0f;
+	matrix[0x8] = (sr * sy) + (cr * sp * cy);
+	matrix[0x9] = (-sr * cy) + (cr * sp * sy);
+	matrix[0xa] = (cr * cp);
+	matrix[0xb] = 0.0f;
+	matrix[0xc] = 0.0f;
+	matrix[0xd] = 0.0f;
+	matrix[0xe] = 0.0f;
+	matrix[0xf] = 1.0f;
+};
+
+
+/*
+=============
+CameraMatrix
+=============
+*/
+void CameraMatrix (float matrix[16], const float origin[3], const float angles[3])
+{
+	float sr = sin (DEG2RAD (angles[2]));
+	float sp = sin (DEG2RAD (angles[0]));
+	float sy = sin (DEG2RAD (angles[1]));
+	float cr = cos (DEG2RAD (angles[2]));
+	float cp = cos (DEG2RAD (angles[0]));
+	float cy = cos (DEG2RAD (angles[1]));
+
+	float _11 = -((cr * -sy) + (sr * sp * cy));
+	float _21 = -((cr * cy) + (sr * sp * sy));
+	float _31 = -(sr * cp);
+
+	float _12 = (sr * sy) + (cr * sp * cy);
+	float _22 = (-sr * cy) + (cr * sp * sy);
+	float _32 = (cr * cp);
+
+	float _13 = -(cp * cy);
+	float _23 = -(cp * sy);
+	float _33 = sp;
+
+	matrix[0x0] = _11;
+	matrix[0x1] = _12;
+	matrix[0x2] = _13;
+	matrix[0x3] = 0.0f;
+	matrix[0x4] = _21;
+	matrix[0x5] = _22;
+	matrix[0x6] = _23;
+	matrix[0x7] = 0.0f;
+	matrix[0x8] = _31;
+	matrix[0x9] = _32;
+	matrix[0xa] = _33;
+	matrix[0xb] = 0.0f;
+	matrix[0xc] = -origin[0] * _11 - origin[1] * _21 - origin[2] * _31;
+	matrix[0xd] = -origin[0] * _12 - origin[1] * _22 - origin[2] * _32;
+	matrix[0xe] = -origin[0] * _13 - origin[1] * _23 - origin[2] * _33;
+	matrix[0xf] = 1.0f;
+}
+
+
 /*
 =============
 TranslationMatrix
