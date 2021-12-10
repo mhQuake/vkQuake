@@ -448,8 +448,9 @@ void CL_PlayDemo_f (void)
 	cls.demopaused = false;
 	cls.state = ca_connected;
 
-// get rid of the menu and/or console
-	key_dest = key_game;
+	// get rid of the menu and/or console
+	SCR_RemoveConsole ();
+	M_RemoveMenu ();
 }
 
 /*

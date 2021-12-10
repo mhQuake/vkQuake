@@ -2862,7 +2862,12 @@ void R_NewMap (void)
 	Sky_NewMap (); //johnfitz -- skybox in worldspawn
 	Fog_NewMap (); //johnfitz -- global fog in worldspawn
 	R_ParseWorldspawn (); //ericw -- wateralpha, lavaalpha, telealpha, slimealpha in worldspawn
+
+	// if running a timedemo, remove the console immediately rather than doing a slow scroll, which may skew timings
+	if (cls.timedemo)
+		SCR_RemoveConsole ();
 }
+
 
 /*
 ====================

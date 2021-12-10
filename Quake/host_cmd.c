@@ -833,7 +833,10 @@ static void Host_Map_f (void)
 
 	if (cls.state != ca_dedicated)
 		IN_Activate();
-	key_dest = key_game;			// remove console or menu
+
+	SCR_RemoveConsole ();
+	M_RemoveMenu ();
+
 	SCR_BeginLoadingPlaque ();
 
 	svs.serverflags = 0;			// haven't completed an episode yet
@@ -928,7 +931,10 @@ static void Host_Changelevel_f (void)
 
 	if (cls.state != ca_dedicated)
 		IN_Activate();	// -- S.A.
-	key_dest = key_game;	// remove console or menu
+
+	SCR_RemoveConsole ();
+	M_RemoveMenu ();
+
 	PR_SwitchQCVM(&sv.qcvm);
 	SV_SaveSpawnparms ();
 	q_strlcpy (level, Cmd_Argv(1), sizeof(level));
@@ -955,6 +961,11 @@ static void Host_Restart_f (void)
 
 	if (cmd_source != src_command)
 		return;
+
+	// remove console and menu
+	SCR_RemoveConsole ();
+	M_RemoveMenu ();
+
 	q_strlcpy (mapname, sv.name, sizeof(mapname));	// mapname gets cleared in spawnserver
 	PR_SwitchQCVM(&sv.qcvm);
 	SV_SpawnServer (mapname);

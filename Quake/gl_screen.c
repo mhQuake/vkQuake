@@ -77,6 +77,8 @@ int			glx, gly, glwidth, glheight;
 float		scr_con_current;
 float		scr_conlines;		// lines of console to display
 
+qboolean	scr_remove_console;
+
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbarscale = {"scr_sbarscale", "1", CVAR_ARCHIVE};
@@ -91,7 +93,7 @@ cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
 cvar_t		scr_fov = {"fov","90",CVAR_ARCHIVE};	// 10 - 170
 cvar_t		scr_fov_adapt = {"fov_adapt","1",CVAR_ARCHIVE};
-cvar_t		scr_conspeed = {"scr_conspeed","500",CVAR_ARCHIVE};
+cvar_t		scr_conspeed = {"scr_conspeed","300", CVAR_NONE};
 cvar_t		scr_centertime = {"scr_centertime","2",CVAR_NONE};
 cvar_t		scr_showram = {"showram","1",CVAR_NONE};
 cvar_t		scr_showturtle = {"showturtle","0",CVAR_NONE};
@@ -687,17 +689,23 @@ SCR_SetUpToDrawConsole
 */
 void SCR_SetUpToDrawConsole (void)
 {
-	//johnfitz -- let's hack away the problem of slow console when host_timescale is <0
-	extern cvar_t host_timescale;
-	float timescale;
-	//johnfitz
+	// mh - do this properly
+	static double con_oldtime = -1;
+	double con_frametime;
+
+	// check for first call
+	if (con_oldtime < 0) con_oldtime = realtime;
+
+	// get correct frametime
+	con_frametime = realtime - con_oldtime;
+	con_oldtime = realtime;
 
 	Con_CheckResize ();
 
 	if (scr_drawloading)
 		return;		// never a console with loading plaque
 
-// decide on the height of the console
+	// decide on the height of the console
 	con_forcedup = !cl.worldmodel || cls.signon != SIGNONS;
 
 	if (con_forcedup)
@@ -705,24 +713,26 @@ void SCR_SetUpToDrawConsole (void)
 		scr_conlines = glheight; //full screen //johnfitz -- glheight instead of vid.height
 		scr_con_current = scr_conlines;
 	}
+	else if (scr_remove_console)
+	{
+		scr_conlines = 0;
+		scr_con_current = 0;
+		scr_remove_console = false;
+	}
 	else if (key_dest == key_console)
-		scr_conlines = glheight/2; //half screen //johnfitz -- glheight instead of vid.height
+		scr_conlines = glheight / 2; //half screen //johnfitz -- glheight instead of vid.height
 	else
 		scr_conlines = 0; //none visible
 
-	timescale = (host_timescale.value > 0) ? host_timescale.value : 1; //johnfitz -- timescale
-
 	if (scr_conlines < scr_con_current)
 	{
-		// ericw -- (glheight/600.0) factor makes conspeed resolution independent, using 800x600 as a baseline
-		scr_con_current -= scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
+		scr_con_current -= scr_conspeed.value * con_frametime * ((float) glheight / 200.0f); // mh - do this properly
 		if (scr_conlines > scr_con_current)
 			scr_con_current = scr_conlines;
 	}
 	else if (scr_conlines > scr_con_current)
 	{
-		// ericw -- (glheight/600.0)
-		scr_con_current += scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
+		scr_con_current += scr_conspeed.value * con_frametime * ((float) glheight / 200.0f); // mh - do this properly
 		if (scr_conlines < scr_con_current)
 			scr_con_current = scr_conlines;
 	}
@@ -752,6 +762,13 @@ void SCR_DrawConsole (void)
 			Con_DrawNotify ();	// only draw notify in game
 	}
 }
+
+
+void SCR_RemoveConsole (void)
+{
+	scr_remove_console = true;
+}
+
 
 //=============================================================================
 

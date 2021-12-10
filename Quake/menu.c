@@ -265,6 +265,13 @@ void M_ToggleMenu_f (void)
 }
 
 
+void M_RemoveMenu (void)
+{
+	key_dest = key_game;
+	m_state = m_none;
+}
+
+
 //=============================================================================
 /* MAIN MENU */
 
