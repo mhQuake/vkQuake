@@ -890,7 +890,7 @@ void R_StoreLightmap(byte* dest, int width, int height, int stride)
 			int i;
 			for (i = 0; i < width; i++)
 			{
-				__m128i v = _mm_srli_epi32(_mm_loadu_si128((const __m128i*)src), 8);
+				__m128i v = _mm_srli_epi32(_mm_loadu_si128((const __m128i*)src), 9);
 				v = _mm_packs_epi32(v, vzero);
 				v = _mm_packus_epi16(v, vzero);
 				((uint32_t*)dest)[i] = _mm_cvtsi128_si32(v) | 0xff000000;
@@ -909,9 +909,9 @@ void R_StoreLightmap(byte* dest, int width, int height, int stride)
 			for (i = 0; i < width; i++)
 			{
 				unsigned c;
-				c = *src++ >> 8; *dest++ = q_min(c, 255);
-				c = *src++ >> 8; *dest++ = q_min(c, 255);
-				c = *src++ >> 8; *dest++ = q_min(c, 255);
+				c = *src++ >> 9; *dest++ = q_min(c, 255);
+				c = *src++ >> 9; *dest++ = q_min(c, 255);
+				c = *src++ >> 9; *dest++ = q_min(c, 255);
 				*dest++ = 255;
 			}
 			dest += stride;

@@ -51,7 +51,7 @@ void main()
 	if (use_alpha_test && diffuse.a < 0.666f)
 		discard;
 
-	vec3 light = Desaturate (texture(lightmap_tex, in_texcoords.zw).rgb, 0.666) * 2.0f;
+	vec3 light = Desaturate (texture(lightmap_tex, in_texcoords.zw).rgb, 0.666) * 4.0f;
 	out_frag_color.rgb = diffuse.rgb * light.rgb;
 
 	if (use_fullbright)
