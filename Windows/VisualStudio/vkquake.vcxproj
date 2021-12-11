@@ -313,6 +313,8 @@ copy "$(SolutionDir)\..\SDL2\lib64\*.dll" "$(TargetDir)"</Command>
     <ClCompile Include="..\..\Shaders\Compiled\basic_notex_frag.c" />
     <ClCompile Include="..\..\Shaders\Compiled\basic_vert.c" />
     <ClCompile Include="..\..\Shaders\Compiled\cs_tex_warp_comp.c" />
+    <ClCompile Include="..\..\Shaders\Compiled\particle_frag.c" />
+    <ClCompile Include="..\..\Shaders\Compiled\particle_vert.c" />
     <ClCompile Include="..\..\Shaders\Compiled\postprocess_frag.c" />
     <ClCompile Include="..\..\Shaders\Compiled\postprocess_vert.c" />
     <ClCompile Include="..\..\Shaders\Compiled\screen_effects_10bit_comp.c" />
@@ -411,6 +413,8 @@ copy "$(SolutionDir)\..\SDL2\lib64\*.dll" "$(TargetDir)"</Command>
     <None Include="..\..\Shaders\basic_notex.frag" />
     <None Include="..\..\Shaders\compile.bat" />
     <None Include="..\..\Shaders\cs_tex_warp.comp" />
+    <None Include="..\..\Shaders\particle.frag" />
+    <None Include="..\..\Shaders\particle.vert" />
     <None Include="..\..\Shaders\postprocess.frag" />
     <None Include="..\..\Shaders\postprocess.vert" />
     <None Include="..\..\Shaders\screen_effects.inc" />

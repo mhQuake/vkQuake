@@ -1586,6 +1586,8 @@ void R_CreatePipelines()
 
 	CREATE_SHADER_MODULE(basic_vert);
 	CREATE_SHADER_MODULE(basic_frag);
+	CREATE_SHADER_MODULE (particle_vert);
+	CREATE_SHADER_MODULE (particle_frag);
 	CREATE_SHADER_MODULE(basic_alphatest_frag);
 	CREATE_SHADER_MODULE(basic_notex_frag);
 	CREATE_SHADER_MODULE(world_vert);
@@ -1837,12 +1839,20 @@ void R_CreatePipelines()
 
 	blend_attachment_state.blendEnable = VK_TRUE;
 
+	// new particle shaders
+	shader_stages[0].module = particle_vert_module;
+	shader_stages[1].module = particle_frag_module;
+
 	assert(vulkan_globals.particle_pipeline.handle == VK_NULL_HANDLE);
 	err = vkCreateGraphicsPipelines(vulkan_globals.device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &vulkan_globals.particle_pipeline.handle);
 	if (err != VK_SUCCESS)
 		Sys_Error("vkCreateGraphicsPipelines failed");
 	vulkan_globals.particle_pipeline.layout = vulkan_globals.basic_pipeline_layout;
 	GL_SetObjectName((uint64_t)vulkan_globals.particle_pipeline.handle, VK_OBJECT_TYPE_PIPELINE, "particles");
+
+	// but this back because code following here assumes they're unchanged
+	shader_stages[0].module = basic_vert_module;
+	shader_stages[1].module = basic_frag_module;
 
 #ifdef PSET_SCRIPT
 	//================
@@ -2480,9 +2490,12 @@ void R_CreatePipelines()
 	vkDestroyShaderModule(vulkan_globals.device, world_vert_module, NULL);
 	vkDestroyShaderModule(vulkan_globals.device, basic_notex_frag_module, NULL);
 	vkDestroyShaderModule(vulkan_globals.device, basic_alphatest_frag_module, NULL);
+	vkDestroyShaderModule (vulkan_globals.device, particle_frag_module, NULL);
+	vkDestroyShaderModule (vulkan_globals.device, particle_vert_module, NULL);
 	vkDestroyShaderModule(vulkan_globals.device, basic_frag_module, NULL);
 	vkDestroyShaderModule(vulkan_globals.device, basic_vert_module, NULL);
 }
+
 
 /*
 ===============
