@@ -593,7 +593,11 @@ void Host_ClearMemory (void)
 	Con_DPrintf ("Clearing memory\n");
 	Mod_ClearAll ();
 	Sky_ClearAll();
-/* host_hunklevel MUST be set at this point */
+
+	// particles are on hunk so they must be cleared here too
+	R_ClearParticles ();
+
+	/* host_hunklevel MUST be set at this point */
 	Hunk_FreeToLowMark (host_hunklevel);
 	cls.signon = 0;
 	PR_ClearProgs(&sv.qcvm);

@@ -24,20 +24,111 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
-#define MAX_PARTICLES			2048	// default max # of particles at one
-										//  time
-#define ABSOLUTE_MIN_PARTICLES	512		// no fewer than this no matter what's
-										//  on the command line
+typedef struct ptypedef_s {
+	vec3_t dvel;
+	vec3_t grav;
+	int *ramp;
+	float ramptime;
+	vec3_t accel;
+} ptypedef_t;
 
-int		ramp1[8] = {0x6f, 0x6d, 0x6b, 0x69, 0x67, 0x65, 0x63, 0x61};
-int		ramp2[8] = {0x6f, 0x6e, 0x6d, 0x6c, 0x6b, 0x6a, 0x68, 0x66};
-int		ramp3[8] = {0x6d, 0x6b, 6, 5, 4, 3};
 
-particle_t	*active_particles, *free_particles, *particles;
+typedef enum {
+	pt_static, pt_grav, pt_slowgrav, pt_fire, pt_explode, pt_explode2, pt_blob, pt_blob2, pt_entparticles, MAX_PARTICLE_TYPES
+} ptype_t;
+
+
+// ramps are made larger to allow for overshoot, using full alpha as the dead particle; anything exceeding ramp[8] is automatically dead
+int ramp1[] = {0x6f, 0x6d, 0x6b, 0x69, 0x67, 0x65, 0x63, 0x61, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+int ramp2[] = {0x6f, 0x6e, 0x6d, 0x6c, 0x6b, 0x6a, 0x68, 0x66, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+int ramp3[] = {0x6d, 0x6b, 0x06, 0x05, 0x04, 0x03, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+
+ptypedef_t p_typedefs[MAX_PARTICLE_TYPES] = {
+	{{0, 0, 0}, {0, 0, 0}, NULL, 0},		// pt_static
+	{{0, 0, 0}, {0, 0, -1}, NULL, 0},		// pt_grav
+	{{0, 0, 0}, {0, 0, -0.5}, NULL, 0},		// pt_slowgrav
+	{{0, 0, 0}, {0, 0, 1}, ramp3, 5},		// pt_fire
+	{{4, 4, 4}, {0, 0, -1}, ramp1, 10},		// pt_explode
+	{{-1, -1, -1}, {0, 0, -1}, ramp2, 15},		// pt_explode2
+	{{4, 4, 4}, {0, 0, -1}, NULL, 0},		// pt_blob
+	{{-4, -4, 0}, {0, 0, -1}, NULL, 0},		// pt_blob2
+	{{4, 4, 4}, {0, 0, -1}, NULL, 0},		// pt_entparticles replicates pt_explode but with no ramp
+};
+
+
+// !!! if this is changed, it must be changed in d_ifacea.h too !!!
+typedef struct particle_s
+{
+	// driver-usable fields
+	vec3_t move;
+	int color;
+
+	// drivers never touch the following fields
+	vec3_t org;
+	vec3_t vel;
+	float ramp;
+	float time;
+	float die;
+	ptype_t type;
+
+	int flags;
+
+	struct particle_s *next;
+} particle_t;
+
+
+#define MAX_PARTICLES			2048	// default max # of particles at one time
+
+#define PF_ONEFRAME		(1 << 0)		// particle is removed after one frame irrespective of die times
+#define PF_ETERNAL		(1 << 1)		// particle is never removed irrespective of die times
+
+
+
+particle_t *active_particles;
+particle_t *free_particles;
+
+
+particle_t *R_AllocParticle (void)
+{
+	if (!free_particles)
+	{
+		int i;
+
+		free_particles = (particle_t *) Hunk_Alloc (MAX_PARTICLES * sizeof (particle_t));
+
+		for (i = 1; i < MAX_PARTICLES; i++)
+			free_particles[i - 1].next = &free_particles[i];
+
+		free_particles[MAX_PARTICLES - 1].next = NULL;
+
+		// call recursively to use the new free particles
+		return R_AllocParticle ();
+	}
+	else
+	{
+		// take the first free particle
+		particle_t *p = free_particles;
+		free_particles = p->next;
+
+		// and move it to the active list
+		p->next = active_particles;
+		active_particles = p;
+
+		// save off time the particle was spawned at for time-based effects
+		p->time = cl.time;
+
+		// initially no flags
+		p->flags = 0;
+
+		// and return what we got
+		return p;
+	}
+}
+
 
 vec3_t			r_pright, r_pup, r_ppn;
 
-int			r_numparticles;
 
 gltexture_t *particletexture, *particletexture1, *particletexture2, *particletexture3, *particletexture4; //johnfitz
 float texturescalefactor; //johnfitz -- compensate for apparent size of different particle textures
@@ -153,7 +244,7 @@ R_InitParticleIndexBuffer
 */
 void R_InitParticleIndexBuffer(void)
 {
-	uint32_t particle_index_buffer_size = r_numparticles * sizeof(uint16_t) * 6; // 6 indices per particle quad
+	uint32_t particle_index_buffer_size = MAX_PARTICLES * sizeof(uint16_t) * 6; // 6 indices per particle quad
 
 	VkResult err;
 
@@ -201,7 +292,7 @@ void R_InitParticleIndexBuffer(void)
 	int staging_offset;
 	uint16_t * staging_indices = (uint16_t*)R_StagingAllocate(particle_index_buffer_size, 1, &command_buffer, &staging_buffer, &staging_offset);
 
-	for (int i=0; i < r_numparticles; ++i)
+	for (int i=0; i < MAX_PARTICLES; ++i)
 	{
 		staging_indices[i * 6 + 0] = i * 4 + 0;
 		staging_indices[i * 6 + 1] = i * 4 + 1;
@@ -225,24 +316,6 @@ R_InitParticles
 */
 void R_InitParticles (void)
 {
-	int		i;
-
-	i = COM_CheckParm ("-particles");
-
-	if (i)
-	{
-		r_numparticles = (int)(Q_atoi(com_argv[i+1]));
-		if (r_numparticles < ABSOLUTE_MIN_PARTICLES)
-			r_numparticles = ABSOLUTE_MIN_PARTICLES;
-	}
-	else
-	{
-		r_numparticles = MAX_PARTICLES;
-	}
-
-	particles = (particle_t *)
-			Hunk_AllocName (r_numparticles * sizeof(particle_t), "particles");
-
 	Cvar_RegisterVariable (&r_particles); //johnfitz
 	Cvar_SetCallback (&r_particles, R_SetParticleTexture_f);
 	Cvar_RegisterVariable (&r_quadparticles); //johnfitz
@@ -250,6 +323,19 @@ void R_InitParticles (void)
 	R_InitParticleTextures (); //johnfitz
 	R_InitParticleIndexBuffer();
 }
+
+
+/*
+===============
+R_ClearParticles
+===============
+*/
+void R_ClearParticles (void)
+{
+	free_particles = NULL;
+	active_particles = NULL;
+}
+
 
 /*
 ===============
@@ -304,39 +390,21 @@ void R_EntityParticles (entity_t *ent)
 		forward[1] = cp*sy;
 		forward[2] = -sp;
 
-		if (!free_particles)
+		if ((p = R_AllocParticle ()) == NULL)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		p->die = cl.time + 0.01;
 		p->color = 0x6f;
-		p->type = pt_explode;
+		p->type = pt_entparticles;
 
 		p->org[0] = ent->origin[0] + r_avertexnormals[i][0]*dist + forward[0]*beamlength;
 		p->org[1] = ent->origin[1] + r_avertexnormals[i][1]*dist + forward[1]*beamlength;
 		p->org[2] = ent->origin[2] + r_avertexnormals[i][2]*dist + forward[2]*beamlength;
+
+		p->flags = PF_ONEFRAME;
 	}
 }
 
-/*
-===============
-R_ClearParticles
-===============
-*/
-void R_ClearParticles (void)
-{
-	int		i;
-
-	free_particles = &particles[0];
-	active_particles = NULL;
-
-	for (i=0 ;i<r_numparticles ; i++)
-		particles[i].next = &particles[i+1];
-	particles[r_numparticles-1].next = NULL;
-}
 
 /*
 ===============
@@ -358,6 +426,7 @@ void R_ReadPointFile_f (void)
 	q_snprintf (name, sizeof(name), "maps/%s.pts", cl.mapname);
 
 	COM_FOpenFile (name, &f, NULL);
+
 	if (!f)
 	{
 		Con_Printf ("couldn't open %s\n", name);
@@ -365,8 +434,10 @@ void R_ReadPointFile_f (void)
 	}
 
 	Con_Printf ("Reading %s...\n", name);
+
 	c = 0;
 	org[0] = org[1] = org[2] = 0; // silence pesky compiler warnings
+
 	for ( ;; )
 	{
 		r = fscanf (f,"%f %f %f\n", &org[0], &org[1], &org[2]);
@@ -374,21 +445,20 @@ void R_ReadPointFile_f (void)
 			break;
 		c++;
 
-		if (!free_particles)
+		if ((p = R_AllocParticle ()) == NULL)
 		{
 			Con_Printf ("Not enough free particles\n");
 			break;
 		}
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		p->die = 99999;
 		p->color = (-c)&15;
 		p->type = pt_static;
+
 		VectorCopy (vec3_origin, p->vel);
 		VectorCopy (org, p->org);
+
+		p->flags = PF_ETERNAL;
 	}
 
 	fclose (f);
@@ -405,21 +475,18 @@ Parse an effect out of the server message
 void R_ParseParticleEffect (void)
 {
 	vec3_t		org, dir;
-	int			i, count, msgcount, color;
+	int			i, count, color;
 
 	for (i=0 ; i<3 ; i++)
 		org[i] = MSG_ReadCoord (cl.protocolflags);
 	for (i=0 ; i<3 ; i++)
 		dir[i] = MSG_ReadChar () * (1.0/16);
-	msgcount = MSG_ReadByte ();
+	count = MSG_ReadByte ();
 	color = MSG_ReadByte ();
 
-	if (msgcount == 255)
-		count = 1024;
-	else
-		count = msgcount;
-
-	R_RunParticleEffect (org, dir, color, count);
+	if (count == 255)
+		R_ParticleExplosion (org);
+	else R_RunParticleEffect (org, dir, color, count);
 }
 
 /*
@@ -434,12 +501,8 @@ void R_ParticleExplosion (vec3_t org)
 
 	for (i=0 ; i<1024 ; i++)
 	{
-		if (!free_particles)
+		if ((p = R_AllocParticle ()) == NULL)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		p->die = cl.time + 5;
 		p->color = ramp1[0];
@@ -478,12 +541,8 @@ void R_ParticleExplosion2 (vec3_t org, int colorStart, int colorLength)
 
 	for (i=0; i<512; i++)
 	{
-		if (!free_particles)
+		if ((p = R_AllocParticle ()) == NULL)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		p->die = cl.time + 0.3;
 		p->color = colorStart + (colorMod % colorLength);
@@ -510,12 +569,8 @@ void R_BlobExplosion (vec3_t org)
 
 	for (i=0 ; i<1024 ; i++)
 	{
-		if (!free_particles)
+		if ((p = R_AllocParticle ()) == NULL)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		p->die = cl.time + 1 + (rand()&8)*0.05;
 
@@ -552,52 +607,29 @@ void R_RunParticleEffect (vec3_t org, vec3_t dir, int color, int count)
 	int			i, j;
 	particle_t	*p;
 
+	if (count == 1024)
+	{
+		R_ParticleExplosion (org);
+		return;
+	}
+
 	for (i=0 ; i<count ; i++)
 	{
-		if (!free_particles)
+		if ((p = R_AllocParticle ()) == NULL)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
-		if (count == 1024)
-		{	// rocket explosion
-			p->die = cl.time + 5;
-			p->color = ramp1[0];
-			p->ramp = rand()&3;
-			if (i & 1)
-			{
-				p->type = pt_explode;
-				for (j=0 ; j<3 ; j++)
-				{
-					p->org[j] = org[j] + ((rand()%32)-16);
-					p->vel[j] = (rand()%512)-256;
-				}
-			}
-			else
-			{
-				p->type = pt_explode2;
-				for (j=0 ; j<3 ; j++)
-				{
-					p->org[j] = org[j] + ((rand()%32)-16);
-					p->vel[j] = (rand()%512)-256;
-				}
-			}
-		}
-		else
+		p->die = cl.time + 0.1*(rand()%5);
+		p->color = (color&~7) + (rand()&7);
+		p->type = pt_slowgrav;
+
+		for (j=0 ; j<3 ; j++)
 		{
-			p->die = cl.time + 0.1*(rand()%5);
-			p->color = (color&~7) + (rand()&7);
-			p->type = pt_slowgrav;
-			for (j=0 ; j<3 ; j++)
-			{
-				p->org[j] = org[j] + ((rand()&15)-8);
-				p->vel[j] = dir[j]*15;// + (rand()%300)-150;
-			}
+			p->org[j] = org[j] + ((rand()&15)-8);
+			p->vel[j] = dir[j]*15;// + (rand()%300)-150;
 		}
 	}
 }
+
 
 /*
 ===============
@@ -615,12 +647,8 @@ void R_LavaSplash (vec3_t org)
 		for (j=-16 ; j<16 ; j++)
 			for (k=0 ; k<1 ; k++)
 			{
-				if (!free_particles)
+				if ((p = R_AllocParticle ()) == NULL)
 					return;
-				p = free_particles;
-				free_particles = p->next;
-				p->next = active_particles;
-				active_particles = p;
 
 				p->die = cl.time + 2 + (rand()&31) * 0.02;
 				p->color = 224 + (rand()&7);
@@ -656,12 +684,8 @@ void R_TeleportSplash (vec3_t org)
 		for (j=-16 ; j<16 ; j+=4)
 			for (k=-24 ; k<32 ; k+=4)
 			{
-				if (!free_particles)
+				if ((p = R_AllocParticle ()) == NULL)
 					return;
-				p = free_particles;
-				free_particles = p->next;
-				p->next = active_particles;
-				active_particles = p;
 
 				p->die = cl.time + 0.2 + (rand()&7) * 0.02;
 				p->color = 7 + (rand()&7);
@@ -711,12 +735,8 @@ void R_RocketTrail (vec3_t start, vec3_t end, int type)
 	{
 		len -= dec;
 
-		if (!free_particles)
+		if ((p = R_AllocParticle ()) == NULL)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		VectorCopy (vec3_origin, p->vel);
 		p->die = cl.time + 2;
@@ -798,21 +818,24 @@ CL_RunParticles -- johnfitz -- all the particle behavior, separated from R_DrawP
 */
 void CL_RunParticles (void)
 {
-	particle_t		*p, *kill;
-	int				i;
-	float			time1, time2, time3, dvel, frametime, grav;
-	extern	cvar_t	sv_gravity;
-
-	frametime = cl.time - cl.oldtime;
-	time3 = frametime * 15;
-	time2 = frametime * 10;
-	time1 = frametime * 5;
-	grav = frametime * sv_gravity.value * 0.05;
-	dvel = 4*frametime;
-
-	for ( ;; )
+	// update particle accelerations
+	for (int i = 0; i < MAX_PARTICLE_TYPES; i++)
 	{
-		kill = active_particles;
+		extern cvar_t sv_gravity;
+		ptypedef_t *pt = &p_typedefs[i];
+		float grav = sv_gravity.value * 0.05;
+
+		// in theory this could be calced once and never again, but in practice mods may change sv_gravity from frame-to-frame
+		// so we need to recalc it each frame too.... (correcting the acceleration formula here too)
+		pt->accel[0] = (pt->dvel[0] + (pt->grav[0] * grav)) * 0.5f;
+		pt->accel[1] = (pt->dvel[1] + (pt->grav[1] * grav)) * 0.5f;
+		pt->accel[2] = (pt->dvel[2] + (pt->grav[2] * grav)) * 0.5f;
+	}
+
+	for (;;)
+	{
+		particle_t *kill = active_particles;
+
 		if (kill && kill->die < cl.time)
 		{
 			active_particles = kill->next;
@@ -820,14 +843,16 @@ void CL_RunParticles (void)
 			free_particles = kill;
 			continue;
 		}
+
 		break;
 	}
 
-	for (p=active_particles ; p ; p=p->next)
+	for (particle_t *p = active_particles; p; p = p->next)
 	{
-		for ( ;; )
+		for (;;)
 		{
-			kill = p->next;
+			particle_t *kill = p->next;
+
 			if (kill && kill->die < cl.time)
 			{
 				p->next = kill->next;
@@ -835,67 +860,49 @@ void CL_RunParticles (void)
 				free_particles = kill;
 				continue;
 			}
+
 			break;
 		}
 
-		p->org[0] += p->vel[0]*frametime;
-		p->org[1] += p->vel[1]*frametime;
-		p->org[2] += p->vel[2]*frametime;
+		// get the emitter properties for this particle
+		ptypedef_t *pt = &p_typedefs[p->type];
+		float etime = cl.time - p->time;
 
-		switch (p->type)
+		// update colour ramps
+		if (pt->ramp)
 		{
-		case pt_static:
-			break;
-		case pt_fire:
-			p->ramp += time1;
-			if (p->ramp >= 6)
+			int ramp = (int) (p->ramp + (etime * pt->ramptime));
+
+			// set dead particles to full-alpha and the system will remove them on the next frame
+			if (ramp > 8)
+			{
+				p->color = 0xff;
 				p->die = -1;
-			else
-				p->color = ramp3[(int)p->ramp];
-			p->vel[2] += grav;
-			break;
-
-		case pt_explode:
-			p->ramp += time2;
-			if (p->ramp >=8)
+			}
+			else if ((p->color = pt->ramp[ramp]) == 0xff)
 				p->die = -1;
-			else
-				p->color = ramp1[(int)p->ramp];
-			for (i=0 ; i<3 ; i++)
-				p->vel[i] += p->vel[i]*dvel;
-			p->vel[2] -= grav;
-			break;
-
-		case pt_explode2:
-			p->ramp += time3;
-			if (p->ramp >=8)
-				p->die = -1;
-			else
-				p->color = ramp2[(int)p->ramp];
-			for (i=0 ; i<3 ; i++)
-				p->vel[i] -= p->vel[i]*frametime;
-			p->vel[2] -= grav;
-			break;
-
-		case pt_blob:
-			for (i=0 ; i<3 ; i++)
-				p->vel[i] += p->vel[i]*dvel;
-			p->vel[2] -= grav;
-			break;
-
-		case pt_blob2:
-			for (i=0 ; i<2 ; i++)
-				p->vel[i] -= p->vel[i]*dvel;
-			p->vel[2] -= grav;
-			break;
-
-		case pt_grav:
-		case pt_slowgrav:
-			p->vel[2] -= grav;
-			break;
 		}
+
+		// in theory i could do this movement on the GPU as well; in practice perf is 50/50 between GPU and CPU
+		p->move[0] = p->org[0] + (p->vel[0] + (pt->accel[0] * etime)) * etime;
+		p->move[1] = p->org[1] + (p->vel[1] + (pt->accel[1] * etime)) * etime;
+		p->move[2] = p->org[2] + (p->vel[2] + (pt->accel[2] * etime)) * etime;
 	}
 }
+
+
+void R_FlushParticles (int num_particles, VkBuffer vertex_buffer, VkDeviceSize vertex_buffer_offset)
+{
+	vulkan_globals.vk_cmd_bind_vertex_buffers (vulkan_globals.command_buffer, 0, 1, &vertex_buffer, &vertex_buffer_offset);
+
+	if (r_quadparticles.value)
+	{
+		vulkan_globals.vk_cmd_bind_index_buffer (vulkan_globals.command_buffer, particle_index_buffer, 0, VK_INDEX_TYPE_UINT16);
+		vulkan_globals.vk_cmd_draw_indexed (vulkan_globals.command_buffer, num_particles * 6, 1, 0, 0, 0);
+	}
+	else vulkan_globals.vk_cmd_draw (vulkan_globals.command_buffer, num_particles * 3, 1, 0, 0);
+}
+
 
 /*
 ===============
@@ -932,24 +939,42 @@ static void R_DrawParticlesFaces(void)
 		up_right[i] = up[i] + right[i];
 
 	int num_particles = 0;
-	for (p = active_particles; p; p = p->next)
-		num_particles += 1;
 
-	VkBuffer vertex_buffer;
-	VkDeviceSize vertex_buffer_offset;
-	basicvertex_t * vertices;
-	if (r_quadparticles.value)
-		vertices = (basicvertex_t*)R_VertexAllocate(num_particles * 4 * sizeof(basicvertex_t), &vertex_buffer, &vertex_buffer_offset);
-	else
-		vertices = (basicvertex_t*)R_VertexAllocate(num_particles * 3 * sizeof(basicvertex_t), &vertex_buffer, &vertex_buffer_offset);
+	VkBuffer vertex_buffer = 0;
+	VkDeviceSize vertex_buffer_offset = 0;
+	basicvertex_t * vertices = NULL;
 
 	int current_vertex = 0;
 	for (p = active_particles; p; p = p->next)
 	{
+		// check for overflow and flush if required
+		if (num_particles + 1 >= MAX_PARTICLES)
+		{
+			R_FlushParticles (num_particles, vertex_buffer, vertex_buffer_offset);
+			vertices = NULL;
+		}
+
+		// get more vertices if required
+		if (!vertices)
+		{
+			// size the allocation
+			int buf_particles = 0;
+
+			for (particle_t *p2 = p; p2 && buf_particles <= MAX_PARTICLES; p2 = p2->next)
+				buf_particles++;
+
+			if (r_quadparticles.value)
+				vertices = (basicvertex_t *) R_VertexAllocate (buf_particles * 4 * sizeof (basicvertex_t), &vertex_buffer, &vertex_buffer_offset);
+			else
+				vertices = (basicvertex_t *) R_VertexAllocate (buf_particles * 3 * sizeof (basicvertex_t), &vertex_buffer, &vertex_buffer_offset);
+
+			num_particles = 0;
+			current_vertex = 0;
+		}
+
 		// hack a scale up to keep particles from disapearing
-		scale = (p->org[0] - r_origin[0]) * vpn[0]
-			+ (p->org[1] - r_origin[1]) * vpn[1]
-			+ (p->org[2] - r_origin[2]) * vpn[2];
+		scale = (p->move[0] - r_origin[0]) * vpn[0] + (p->move[1] - r_origin[1]) * vpn[1] + (p->move[2] - r_origin[2]) * vpn[2];
+
 		if (scale < 20)
 			scale = 1 + 0.08; //johnfitz -- added .08 to be consistent
 		else
@@ -957,11 +982,11 @@ static void R_DrawParticlesFaces(void)
 
 		scale *= texturescalefactor; //johnfitz -- compensate for apparent size of different particle textures
 
-		byte * c = (byte*)&d_8to24table[(int)p->color];
+		byte *c = (byte*) &d_8to24table[p->color];
 
-		vertices[current_vertex].position[0] = p->org[0];
-		vertices[current_vertex].position[1] = p->org[1];
-		vertices[current_vertex].position[2] = p->org[2];
+		vertices[current_vertex].position[0] = p->move[0];
+		vertices[current_vertex].position[1] = p->move[1];
+		vertices[current_vertex].position[2] = p->move[2];
 		vertices[current_vertex].texcoord[0] = 0.0f;
 		vertices[current_vertex].texcoord[1] = 0.0f;
 		vertices[current_vertex].color[0] = c[0];
@@ -970,7 +995,7 @@ static void R_DrawParticlesFaces(void)
 		vertices[current_vertex].color[3] = 255;
 		current_vertex++;
 
-		VectorMA(p->org, scale, up, p_up);
+		VectorMA(p->move, scale, up, p_up);
 		vertices[current_vertex].position[0] = p_up[0];
 		vertices[current_vertex].position[1] = p_up[1];
 		vertices[current_vertex].position[2] = p_up[2];
@@ -984,7 +1009,7 @@ static void R_DrawParticlesFaces(void)
 
 		if (r_quadparticles.value)
 		{
-			VectorMA(p->org, scale, up_right, p_up_right);
+			VectorMA(p->move, scale, up_right, p_up_right);
 			vertices[current_vertex].position[0] = p_up_right[0];
 			vertices[current_vertex].position[1] = p_up_right[1];
 			vertices[current_vertex].position[2] = p_up_right[2];
@@ -997,7 +1022,7 @@ static void R_DrawParticlesFaces(void)
 			current_vertex++;
 		}
 
-		VectorMA(p->org, scale, right, p_right);
+		VectorMA(p->move, scale, right, p_right);
 		vertices[current_vertex].position[0] = p_right[0];
 		vertices[current_vertex].position[1] = p_right[1];
 		vertices[current_vertex].position[2] = p_right[2];
@@ -1010,17 +1035,16 @@ static void R_DrawParticlesFaces(void)
 		current_vertex++;
 
 		rs_particles++;
+		num_particles++;
+
+		// update die flags - these must be done after drawing, not in CL_RunParticles, as otherwise they will be killed before getting to here!!!
+		if (p->flags & PF_ETERNAL) p->die = cl.time + 1;
+		if (p->flags & PF_ONEFRAME) p->die = -1;
 	}
 
-	vulkan_globals.vk_cmd_bind_vertex_buffers(vulkan_globals.command_buffer, 0, 1, &vertex_buffer, &vertex_buffer_offset);
-	if (r_quadparticles.value)
-	{
-		vulkan_globals.vk_cmd_bind_index_buffer(vulkan_globals.command_buffer, particle_index_buffer, 0, VK_INDEX_TYPE_UINT16);
-		vulkan_globals.vk_cmd_draw_indexed(vulkan_globals.command_buffer, num_particles * 6, 1, 0, 0, 0);
-	}
-	else
-		vulkan_globals.vk_cmd_draw(vulkan_globals.command_buffer, num_particles * 3, 1, 0, 0);
+	R_FlushParticles (num_particles, vertex_buffer, vertex_buffer_offset);
 }
+
 
 /*
 ===============
