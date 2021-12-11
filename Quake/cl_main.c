@@ -465,6 +465,7 @@ static qboolean CL_LerpEntity(entity_t *ent, vec3_t org, vec3_t ang, float frac)
 		// so move to the final spot
 		VectorCopy (ent->msg_origins[0], org);
 		VectorCopy (ent->msg_angles[0], ang);
+		CL_ClearRocketTrail (ent);
 	}
 	else
 	{	// if the delta is large, assume a teleport and don't lerp
@@ -573,6 +574,28 @@ static qboolean CL_AttachEntity(entity_t *ent, float frac)
 	}
 }
 
+
+// update trails at half the standard FPS
+static const double cl_traildelta = (1.0 / 36.0);
+
+static void CL_RocketTrail (entity_t *ent, int type)
+{
+	if (cl.time > ent->nexttrailtime)
+	{
+		R_RocketTrail (ent->oldtrailorigin, ent->origin, type);
+		VectorCopy (ent->origin, ent->oldtrailorigin);
+		ent->nexttrailtime = cl.time + cl_traildelta;
+	}
+}
+
+
+void CL_ClearRocketTrail (entity_t *ent)
+{
+	VectorCopy (ent->origin, ent->oldtrailorigin);
+	ent->nexttrailtime = cl.time + cl_traildelta;
+}
+
+
 /*
 ===============
 CL_RelinkEntities
@@ -639,6 +662,7 @@ void CL_RelinkEntities (void)
 			// ent can't be static, so this is a no-op.
 			//if (ent->forcelink)
 			//	R_RemoveEfrags (ent);	// just became empty
+			CL_ClearRocketTrail (ent);
 			continue;
 		}
 		ent->eflags = ent->netstate.eflags;
@@ -649,6 +673,7 @@ void CL_RelinkEntities (void)
 			ent->model = NULL;
 			ent->lerpflags |= LERP_RESETMOVE|LERP_RESETANIM; //johnfitz -- next time this entity slot is reused, the lerp will need to be reset
 			InvalidateTraceLineCache();
+			CL_ClearRocketTrail (ent);
 			continue;
 		}
 
@@ -732,25 +757,25 @@ void CL_RelinkEntities (void)
 		else
 #endif
 		if (ent->model->flags & EF_GIB)
-			R_RocketTrail (oldorg, ent->origin, 2);
+			CL_RocketTrail (ent, 2);
 		else if (ent->model->flags & EF_ZOMGIB)
-			R_RocketTrail (oldorg, ent->origin, 4);
+			CL_RocketTrail (ent, 4);
 		else if (ent->model->flags & EF_TRACER)
-			R_RocketTrail (oldorg, ent->origin, 3);
+			CL_RocketTrail (ent, 3);
 		else if (ent->model->flags & EF_TRACER2)
-			R_RocketTrail (oldorg, ent->origin, 5);
+			CL_RocketTrail (ent, 5);
 		else if (ent->model->flags & EF_ROCKET)
 		{
-			R_RocketTrail (oldorg, ent->origin, 0);
+			CL_RocketTrail (ent, 0);
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin, dl->origin);
 			dl->radius = 200;
 			dl->die = cl.time + 0.01;
 		}
 		else if (ent->model->flags & EF_GRENADE)
-			R_RocketTrail (oldorg, ent->origin, 1);
+			CL_RocketTrail (ent, 1);
 		else if (ent->model->flags & EF_TRACER3)
-			R_RocketTrail (oldorg, ent->origin, 6);
+			CL_RocketTrail (ent, 6);
 
 		ent->forcelink = false;
 

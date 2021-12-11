@@ -332,6 +332,8 @@ extern	int				cl_maxvisedicts;	//extended if we exceeded it the previous frame
 dlight_t *CL_AllocDlight (int key);
 void	CL_DecayLights (void);
 
+void CL_ClearRocketTrail (entity_t *ent);
+
 void CL_Init (void);
 
 void CL_EstablishConnection (const char *host);

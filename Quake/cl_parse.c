@@ -196,6 +196,7 @@ entity_t	*CL_EntityNum (int num)
 			Host_Error ("CL_EntityNum: %i is an invalid number",num);
 		while (cl.num_entities<=num)
 		{
+			CL_ClearRocketTrail (&cl.entities[cl.num_entities]);
 			cl.entities[cl.num_entities].baseline = nullentitystate;
 			cl.entities[cl.num_entities].lerpflags |= LERP_RESETMOVE|LERP_RESETANIM; //johnfitz
 			cl.num_entities++;
@@ -620,6 +621,8 @@ static void CL_EntitiesDeltaed(void)
 			VectorCopy (ent->msg_angles[0], ent->msg_angles[1]);
 			VectorCopy (ent->msg_angles[0], ent->angles);
 			ent->forcelink = true;
+
+			CL_ClearRocketTrail (ent);
 		}
 	}
 }
@@ -685,6 +688,7 @@ static void CLFTE_ParseEntitiesUpdate(void)
 			ent->update_type = false; //no longer valid
 			ent->model = NULL;
 			InvalidateTraceLineCache();
+			CL_ClearRocketTrail (ent);
 			continue;
 		}
 		else if (ent->update_type)
@@ -1324,6 +1328,7 @@ static void CL_ParseUpdate (int bits)
 		VectorCopy (ent->msg_angles[0], ent->msg_angles[1]);
 		VectorCopy (ent->msg_angles[0], ent->angles);
 		ent->forcelink = true;
+		CL_ClearRocketTrail (ent);
 	}
 }
 
@@ -1340,6 +1345,7 @@ static void CL_ParseBaseline (entity_t *ent, int version) //johnfitz -- added ar
 	if (version == 6)
 	{
 		CLFTE_ParseBaseline(&ent->baseline);
+		CL_ClearRocketTrail (ent);
 		return;
 	}
 
@@ -1363,6 +1369,8 @@ static void CL_ParseBaseline (entity_t *ent, int version) //johnfitz -- added ar
 	}
 
 	ent->baseline.alpha = (bits & B_ALPHA) ? MSG_ReadByte() : ENTALPHA_DEFAULT; //johnfitz -- PROTOCOL_FITZQUAKE
+
+	CL_ClearRocketTrail (ent);
 }
 
 
@@ -1549,6 +1557,8 @@ static void CL_ParseStatic (int version) //johnfitz -- added a parameter
 		R_AddEfrags (ent);
 
 	InvalidateTraceLineCache();
+
+	CL_ClearRocketTrail (ent);
 }
 
 /*
