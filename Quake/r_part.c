@@ -126,115 +126,12 @@ particle_t *R_AllocParticle (void)
 }
 
 
-vec3_t			r_pright, r_pup, r_ppn;
-
-
-gltexture_t *particletexture, *particletexture1, *particletexture2, *particletexture3, *particletexture4; //johnfitz
-float texturescalefactor; //johnfitz -- compensate for apparent size of different particle textures
-
 cvar_t	r_particles = {"r_particles","1", CVAR_ARCHIVE}; //johnfitz
-cvar_t	r_quadparticles = {"r_quadparticles","1", CVAR_ARCHIVE}; //johnfitz
 
 extern cvar_t r_showtris;
 
 static VkBuffer particle_index_buffer;
 
-/*
-===============
-R_ParticleTextureLookup -- johnfitz -- generate nice antialiased 32x32 circle for particles
-===============
-*/
-int R_ParticleTextureLookup (int x, int y, int sharpness)
-{
-	int r; //distance from point x,y to circle origin, squared
-	int a; //alpha value to return
-
-	x -= 16;
-	y -= 16;
-	r = x * x + y * y;
-	r = r > 255 ? 255 : r;
-	a = sharpness * (255 - r);
-	a = q_min(a,255);
-	return a;
-}
-
-/*
-===============
-R_InitParticleTextures -- johnfitz -- rewritten
-===============
-*/
-void R_InitParticleTextures (void)
-{
-	int			x,y;
-	static byte	particle1_data[64*64*4];
-	static byte	particle2_data[2*2*4];
-	static byte	particle3_data[64*64*4];
-	byte		*dst;
-
-	// particle texture 1 -- circle
-	dst = particle1_data;
-	for (x=0 ; x<64 ; x++)
-		for (y=0 ; y<64 ; y++)
-		{
-			*dst++ = 255;
-			*dst++ = 255;
-			*dst++ = 255;
-			*dst++ = R_ParticleTextureLookup(x, y, 8);
-		}
-	particletexture1 = TexMgr_LoadImage (NULL, "particle1", 64, 64, SRC_RGBA, particle1_data, "", (src_offset_t)particle1_data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_LINEAR);
-
-	// particle texture 2 -- square
-	dst = particle2_data;
-	for (x=0 ; x<2 ; x++)
-		for (y=0 ; y<2 ; y++)
-		{
-			*dst++ = 255;
-			*dst++ = 255;
-			*dst++ = 255;
-			*dst++ = x || y ? 0 : 255;
-		}
-	particletexture2 = TexMgr_LoadImage (NULL, "particle2", 2, 2, SRC_RGBA, particle2_data, "", (src_offset_t)particle2_data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_NEAREST);
-
-	// particle texture 3 -- blob
-	dst = particle3_data;
-	for (x=0 ; x<64 ; x++)
-		for (y=0 ; y<64 ; y++)
-		{
-			*dst++ = 255;
-			*dst++ = 255;
-			*dst++ = 255;
-			*dst++ = R_ParticleTextureLookup(x, y, 2);
-		}
-	particletexture3 = TexMgr_LoadImage (NULL, "particle3", 64, 64, SRC_RGBA, particle3_data, "", (src_offset_t)particle3_data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_LINEAR);
-
-	//set default
-	particletexture = particletexture1;
-	texturescalefactor = 1.27;
-}
-
-/*
-===============
-R_SetParticleTexture_f -- johnfitz
-===============
-*/
-static void R_SetParticleTexture_f (cvar_t *var)
-{
-	switch ((int)(r_particles.value))
-	{
-	case 1:
-		particletexture = particletexture1;
-		texturescalefactor = 1.27;
-		break;
-	case 2:
-		particletexture = particletexture2;
-		texturescalefactor = 1.0;
-		break;
-//	case 3:
-//		particletexture = particletexture3;
-//		texturescalefactor = 1.5;
-//		break;
-	}
-}
 
 /*
 ===============
@@ -316,10 +213,6 @@ R_InitParticles
 void R_InitParticles (void)
 {
 	Cvar_RegisterVariable (&r_particles); //johnfitz
-	Cvar_SetCallback (&r_particles, R_SetParticleTexture_f);
-	Cvar_RegisterVariable (&r_quadparticles); //johnfitz
-
-	R_InitParticleTextures (); //johnfitz
 	R_InitParticleIndexBuffer();
 }
 
@@ -859,16 +752,18 @@ void CL_RunParticles (void)
 R_FlushParticles
 ===============
 */
-void R_FlushParticles (int num_particles, VkBuffer vertex_buffer, VkDeviceSize vertex_buffer_offset)
+void R_FlushParticles (int num_particles, basicvertex_t *vertices)
 {
-	vulkan_globals.vk_cmd_bind_vertex_buffers (vulkan_globals.command_buffer, 0, 1, &vertex_buffer, &vertex_buffer_offset);
+	VkBuffer vertex_buffer = 0;
+	VkDeviceSize vertex_buffer_offset = 0;
 
-	if (r_quadparticles.value)
-	{
-		vulkan_globals.vk_cmd_bind_index_buffer (vulkan_globals.command_buffer, particle_index_buffer, 0, VK_INDEX_TYPE_UINT16);
-		vulkan_globals.vk_cmd_draw_indexed (vulkan_globals.command_buffer, num_particles * 6, 1, 0, 0, 0);
-	}
-	else vulkan_globals.vk_cmd_draw (vulkan_globals.command_buffer, num_particles * 3, 1, 0, 0);
+	// allocate buffer space and copy it over
+	basicvertex_t *dst = (basicvertex_t *) R_VertexAllocate (num_particles * 4 * sizeof (basicvertex_t), &vertex_buffer, &vertex_buffer_offset);
+	memcpy (dst, vertices, num_particles * 4 * sizeof (basicvertex_t));
+
+	// draw
+	vulkan_globals.vk_cmd_bind_vertex_buffers (vulkan_globals.command_buffer, 0, 1, &vertex_buffer, &vertex_buffer_offset);
+	vulkan_globals.vk_cmd_draw_indexed (vulkan_globals.command_buffer, num_particles * 6, 1, 0, 0, 0);
 }
 
 
@@ -877,11 +772,11 @@ void R_FlushParticles (int num_particles, VkBuffer vertex_buffer, VkDeviceSize v
 R_ParticleVertex
 ===============
 */
-void R_ParticleVertex (basicvertex_t *vert, float *org, float s, float t, byte *c)
+void R_ParticleVertex (basicvertex_t *vert, float *org, float s, float t, byte *c, float scale)
 {
-	vert->position[0] = org[0];
-	vert->position[1] = org[1];
-	vert->position[2] = org[2];
+	vert->position[0] = org[0] + (vright[0] * s + vup[0] * t) * scale;
+	vert->position[1] = org[1] + (vright[1] * s + vup[1] * t) * scale;
+	vert->position[2] = org[2] + (vright[2] * s + vup[2] * t) * scale;
 
 	vert->texcoord[0] = s;
 	vert->texcoord[1] = t;
@@ -900,29 +795,11 @@ R_DrawParticlesFaces
 */
 static void R_DrawParticlesFaces(void)
 {
-	particle_t		*p;
-	float			scale, texcoord_scale;
-	vec3_t			up, right, up_right, p_up, p_right, p_up_right;
-	extern	cvar_t	r_particles; //johnfitz
-
 	if (!r_particles.value)
 		return;
 
 	if (!active_particles)
 		return;
-
-	if (r_quadparticles.value)
-	{
-		VectorScale(vup, 0.75, up);
-		VectorScale(vright, 0.75, right);
-		texcoord_scale = 0.5f;
-	}
-	else
-	{
-		VectorScale(vup, 1.5, up);
-		VectorScale(vright, 1.5, right);
-		texcoord_scale = 1.0f;
-	}
 
 	// update particle accelerations
 	for (int i = 0; i < MAX_PARTICLE_TYPES; i++)
@@ -938,17 +815,14 @@ static void R_DrawParticlesFaces(void)
 		pt->accel[2] = (pt->dvel[2] + (pt->grav[2] * grav)) * 0.5f;
 	}
 
-	for (int i = 0; i < 3; ++i)
-		up_right[i] = up[i] + right[i];
-
+	static basicvertex_t vertices[MAX_PARTICLES * 4];
 	int num_particles = 0;
-
-	VkBuffer vertex_buffer = 0;
-	VkDeviceSize vertex_buffer_offset = 0;
-	basicvertex_t *vertices = NULL;
 	int current_vertex = 0;
 
-	for (p = active_particles; p; p = p->next)
+	// index buffer is always bound
+	vulkan_globals.vk_cmd_bind_index_buffer (vulkan_globals.command_buffer, particle_index_buffer, 0, VK_INDEX_TYPE_UINT16);
+
+	for (particle_t *p = active_particles; p; p = p->next)
 	{
 		// get the emitter properties for this particle
 		ptypedef_t *pt = &p_typedefs[p->type];
@@ -972,24 +846,7 @@ static void R_DrawParticlesFaces(void)
 		// check for overflow and flush if required
 		if (num_particles + 1 >= MAX_PARTICLES)
 		{
-			R_FlushParticles (num_particles, vertex_buffer, vertex_buffer_offset);
-			vertices = NULL;
-		}
-
-		// get more vertices if required
-		if (!vertices)
-		{
-			// size the allocation
-			int buf_particles = 0;
-
-			for (particle_t *p2 = p; p2 && buf_particles <= MAX_PARTICLES; p2 = p2->next)
-				buf_particles++;
-
-			if (r_quadparticles.value)
-				vertices = (basicvertex_t *) R_VertexAllocate (buf_particles * 4 * sizeof (basicvertex_t), &vertex_buffer, &vertex_buffer_offset);
-			else
-				vertices = (basicvertex_t *) R_VertexAllocate (buf_particles * 3 * sizeof (basicvertex_t), &vertex_buffer, &vertex_buffer_offset);
-
+			R_FlushParticles (num_particles, vertices);
 			num_particles = 0;
 			current_vertex = 0;
 		}
@@ -1001,31 +858,18 @@ static void R_DrawParticlesFaces(void)
 			p->org[2] + (p->vel[2] + (pt->accel[2] * etime)) * etime
 		};
 
-		// hack a scale up to keep particles from disapearing
-		scale = (move[0] - r_origin[0]) * vpn[0] + (move[1] - r_origin[1]) * vpn[1] + (move[2] - r_origin[2]) * vpn[2];
+		// hack a scale up to keep particles from disapearing (0.004f changed to 0.002f which looks better with this code; 0.666f approximates the original particle size)
+		// this could all be done on the GPU
+		float scale = (1.0f + ((move[0] - r_origin[0]) * vpn[0] + (move[1] - r_origin[1]) * vpn[1] + (move[2] - r_origin[2]) * vpn[2]) * 0.002f) * 0.666f;
 
-		if (scale < 20)
-			scale = 1 + 0.08; //johnfitz -- added .08 to be consistent
-		else
-			scale = 1 + scale * 0.004;
-
-		scale *= texturescalefactor; //johnfitz -- compensate for apparent size of different particle textures
-
+		// retrieve the colour
 		byte *c = (byte *) &d_8to24table[p->color];
 
-		R_ParticleVertex (&vertices[current_vertex++], move, 0, 0, c);
-
-		VectorMA(move, scale, up, p_up);
-		R_ParticleVertex (&vertices[current_vertex++], p_up, texcoord_scale, 0, c);
-
-		if (r_quadparticles.value)
-		{
-			VectorMA(move, scale, up_right, p_up_right);
-			R_ParticleVertex (&vertices[current_vertex++], p_up_right, texcoord_scale, texcoord_scale, c);
-		}
-
-		VectorMA(move, scale, right, p_right);
-		R_ParticleVertex (&vertices[current_vertex++], p_right, 0, texcoord_scale, c);
+		// emit the 4 vertices
+		R_ParticleVertex (&vertices[current_vertex++], move, -1, -1, c, scale);
+		R_ParticleVertex (&vertices[current_vertex++], move,  1, -1, c, scale);
+		R_ParticleVertex (&vertices[current_vertex++], move,  1,  1, c, scale);
+		R_ParticleVertex (&vertices[current_vertex++], move, -1,  1, c, scale);
 
 		rs_particles++;
 		num_particles++;
@@ -1036,7 +880,7 @@ static void R_DrawParticlesFaces(void)
 	}
 
 	if (num_particles)
-		R_FlushParticles (num_particles, vertex_buffer, vertex_buffer_offset);
+		R_FlushParticles (num_particles, vertices);
 }
 
 
@@ -1049,8 +893,6 @@ void R_DrawParticles (void)
 {
 	R_BeginDebugUtilsLabel ("Particles");
 	R_BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan_globals.particle_pipeline);
-	vulkan_globals.vk_cmd_bind_descriptor_sets(vulkan_globals.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan_globals.basic_pipeline_layout.handle, 0, 1, &particletexture->descriptor_set, 0, NULL);
-
 	R_DrawParticlesFaces();
 	R_EndDebugUtilsLabel ();
 }

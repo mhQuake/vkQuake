@@ -1098,6 +1098,23 @@ static int CheckAssosiation(const char *config, const char *name, int from)
 	return orig;
 }
 
+
+// the classic particle textures are no longer used, so just repro the creation of particletexture1 here
+int R_ClassicParticleTextureLookup (int x, int y, int sharpness)
+{
+	int r; //distance from point x,y to circle origin, squared
+	int a; //alpha value to return
+
+	x -= 16;
+	y -= 16;
+	r = x * x + y * y;
+	r = r > 255 ? 255 : r;
+	a = sharpness * (255 - r);
+	a = q_min (a, 255);
+	return a;
+}
+
+
 static void P_LoadTexture(part_type_t *ptype, qboolean warn)
 {
 	if (*ptype->texname)
@@ -1205,8 +1222,29 @@ static void P_LoadTexture(part_type_t *ptype, qboolean warn)
 		}
 		else if (strstr(ptype->texname, "classicparticle"))
 		{
-			extern gltexture_t *particletexture1;
-			ptype->looks.texture = particletexture1;
+			static gltexture_t *thetex = NULL;
+
+			if (!thetex)
+			{
+				// the classic particle textures are no longer used, so just repro the creation of particletexture1 here
+				static byte	particle1_data[64 * 64 * 4];
+				byte *dst = particle1_data;
+
+				for (int x = 0; x < 64; x++)
+				{
+					for (int y = 0; y < 64; y++)
+					{
+						*dst++ = 255;
+						*dst++ = 255;
+						*dst++ = 255;
+						*dst++ = R_ClassicParticleTextureLookup (x, y, 8);
+					}
+				}
+
+				thetex = TexMgr_LoadImage (NULL, "particle1", 64, 64, SRC_RGBA, particle1_data, "", (src_offset_t) particle1_data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_LINEAR);
+			}
+
+			ptype->looks.texture = thetex;
 			ptype->s2 = 0.5;
 			ptype->t2 = 0.5;
 		}
