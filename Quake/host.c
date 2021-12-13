@@ -639,11 +639,13 @@ qboolean Host_FilterTime (float time)
 		// Check if we still have more than 2ms till next frame and if so wait for "1ms"
 		// E.g. Windows is not a real time OS and the sleeps can vary in length even with timeBeginPeriod(1)
 		min_frame_time = 1.0f / maxfps;
-		if((min_frame_time - delta_since_last_frame) > (2.0f/1000.0f))
-			SDL_Delay(1);
 
-		if (!cls.timedemo && (delta_since_last_frame < min_frame_time))
-			return false; // framerate is too high
+		// don't sleep in timedemos
+		if (!cls.timedemo)
+		{
+			if ((min_frame_time - delta_since_last_frame) > (2.0f / 1000.0f)) SDL_Delay (1);
+			if ((delta_since_last_frame < min_frame_time)) return false; // framerate is too high
+		}
 		//johnfitz
 	}
 
