@@ -1242,7 +1242,7 @@ void R_CreatePipelineLayouts()
 	VkPushConstantRange push_constant_range;
 	memset(&push_constant_range, 0, sizeof(push_constant_range));
 	push_constant_range.offset = 0;
-	push_constant_range.size = 21 * sizeof(float);
+	push_constant_range.size = 32 * sizeof(float); // make space for some more push constants in our generic graphics pipelines; 32 floats doesn't exceed the guaranteed minimum of 128 bytes
 	push_constant_range.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info;

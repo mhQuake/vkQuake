@@ -772,14 +772,11 @@ void R_FlushParticles (int num_particles, basicvertex_t *vertices)
 R_ParticleVertex
 ===============
 */
-void R_ParticleVertex (basicvertex_t *vert, float *org, float s, float t, byte *c, float scale)
+void R_ParticleVertex (basicvertex_t *vert, float *org, byte *c)
 {
-	vert->position[0] = org[0] + (vright[0] * s + vup[0] * t) * scale;
-	vert->position[1] = org[1] + (vright[1] * s + vup[1] * t) * scale;
-	vert->position[2] = org[2] + (vright[2] * s + vup[2] * t) * scale;
-
-	vert->texcoord[0] = s;
-	vert->texcoord[1] = t;
+	vert->position[0] = org[0];
+	vert->position[1] = org[1];
+	vert->position[2] = org[2];
 
 	vert->color[0] = c[0];
 	vert->color[1] = c[1];
@@ -822,6 +819,22 @@ static void R_DrawParticlesFaces(void)
 	// index buffer is always bound
 	vulkan_globals.vk_cmd_bind_index_buffer (vulkan_globals.command_buffer, particle_index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
+	// push-constants must be 4-float aligned; we pack them tighter and unpack in the GLSL
+	float pcdata[12];
+
+	// these copy over directly
+	VectorCopy (vpn, &pcdata[0]);
+	VectorCopy (vright, &pcdata[4]);
+	VectorCopy (vup, &pcdata[8]);
+
+	// break up the origin so that we can confirm with alignment requirements
+	pcdata[3] = r_origin[0];
+	pcdata[7] = r_origin[1];
+	pcdata[11] = r_origin[2];
+
+	// and set the constants
+	R_PushConstants (VK_SHADER_STAGE_ALL_GRAPHICS, 20 * sizeof (float), 12 * sizeof (float), pcdata);
+
 	for (particle_t *p = active_particles; p; p = p->next)
 	{
 		// get the emitter properties for this particle
@@ -858,18 +871,14 @@ static void R_DrawParticlesFaces(void)
 			p->org[2] + (p->vel[2] + (pt->accel[2] * etime)) * etime
 		};
 
-		// hack a scale up to keep particles from disapearing (0.004f changed to 0.002f which looks better with this code; 0.666f approximates the original particle size)
-		// this could all be done on the GPU
-		float scale = (1.0f + ((move[0] - r_origin[0]) * vpn[0] + (move[1] - r_origin[1]) * vpn[1] + (move[2] - r_origin[2]) * vpn[2]) * 0.002f) * 0.666f;
-
 		// retrieve the colour
 		byte *c = (byte *) &d_8to24table[p->color];
 
 		// emit the 4 vertices
-		R_ParticleVertex (&vertices[current_vertex++], move, -1, -1, c, scale);
-		R_ParticleVertex (&vertices[current_vertex++], move,  1, -1, c, scale);
-		R_ParticleVertex (&vertices[current_vertex++], move,  1,  1, c, scale);
-		R_ParticleVertex (&vertices[current_vertex++], move, -1,  1, c, scale);
+		R_ParticleVertex (&vertices[current_vertex++], move, c);
+		R_ParticleVertex (&vertices[current_vertex++], move, c);
+		R_ParticleVertex (&vertices[current_vertex++], move, c);
+		R_ParticleVertex (&vertices[current_vertex++], move, c);
 
 		rs_particles++;
 		num_particles++;
