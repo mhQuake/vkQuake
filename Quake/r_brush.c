@@ -114,6 +114,7 @@ void DrawGLPoly (glpoly_t *p, float color[3], float alpha)
 
 	// I don't know the maximum poly size quake maps can have, so just in case fall back to dynamic allocations
 	// TODO: Find out if it's necessary
+	// MH - max size is 64 verts so (64 - 2) * 3 = 186; bumped this define to 186
 	if (numindices > FAN_INDEX_BUFFER_SIZE)
 	{
 		VkBuffer index_buffer;

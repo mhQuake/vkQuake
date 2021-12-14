@@ -53,7 +53,8 @@ extern	int glx, gly, glwidth, glheight;
 #define NUM_COLOR_BUFFERS 2
 #define INITIAL_STAGING_BUFFER_SIZE_KB	16384
 
-#define FAN_INDEX_BUFFER_SIZE 126
+// mh - QBSP enforces max poly size of 64 verts
+#define FAN_INDEX_BUFFER_SIZE 186
 
 void R_TimeRefresh_f (void);
 void R_ReadPointFile_f (void);
