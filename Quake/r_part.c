@@ -77,6 +77,13 @@ typedef struct particle_s
 } particle_t;
 
 
+typedef struct particlevertex_s
+{
+	float position[3];
+	unsigned color;
+} particlevertex_t;
+
+
 #define MAX_PARTICLES			2048	// default max # of particles at one time
 
 #define PF_ONEFRAME		(1 << 0)		// particle is removed after one frame irrespective of die times
@@ -130,80 +137,6 @@ cvar_t	r_particles = {"r_particles","1", CVAR_ARCHIVE}; //johnfitz
 
 extern cvar_t r_showtris;
 
-static VkBuffer particle_index_buffer;
-
-
-/*
-===============
-R_InitParticleIndexBuffer
-===============
-*/
-void R_InitParticleIndexBuffer(void)
-{
-	uint32_t particle_index_buffer_size = MAX_PARTICLES * sizeof(uint16_t) * 6; // 6 indices per particle quad
-
-	VkResult err;
-
-	VkBufferCreateInfo buffer_create_info;
-	memset(&buffer_create_info, 0, sizeof(buffer_create_info));
-	buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	buffer_create_info.size = particle_index_buffer_size;
-	buffer_create_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-	err = vkCreateBuffer(vulkan_globals.device, &buffer_create_info, NULL, &particle_index_buffer);
-	if (err != VK_SUCCESS)
-		Sys_Error("vkCreateBuffer failed");
-
-	GL_SetObjectName((uint64_t)particle_index_buffer, VK_OBJECT_TYPE_BUFFER, "Particle index buffer");
-
-	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(vulkan_globals.device, particle_index_buffer, &memory_requirements);
-
-	const int align_mod = memory_requirements.size % memory_requirements.alignment;
-	const int aligned_size = ((memory_requirements.size % memory_requirements.alignment) == 0) 
-		? memory_requirements.size 
-		: (memory_requirements.size + memory_requirements.alignment - align_mod);
-
-	VkMemoryAllocateInfo memory_allocate_info;
-	memset(&memory_allocate_info, 0, sizeof(memory_allocate_info));
-	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memory_allocate_info.allocationSize = aligned_size;
-	memory_allocate_info.memoryTypeIndex = GL_MemoryTypeFromProperties(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
-
-	num_vulkan_dynbuf_allocations += 1;
-	VkDeviceMemory particle_index_buffer_memory;
-	total_device_vulkan_allocation_size += memory_requirements.size;
-	err = vkAllocateMemory(vulkan_globals.device, &memory_allocate_info, NULL, &particle_index_buffer_memory);
-	if (err != VK_SUCCESS)
-		Sys_Error("vkAllocateMemory failed");
-
-	GL_SetObjectName((uint64_t)particle_index_buffer_memory, VK_OBJECT_TYPE_DEVICE_MEMORY, "Particle index buffer");
-
-	err = vkBindBufferMemory(vulkan_globals.device, particle_index_buffer, particle_index_buffer_memory, 0);
-	if (err != VK_SUCCESS)
-		Sys_Error("vkBindBufferMemory failed");
-
-	VkBuffer staging_buffer;
-	VkCommandBuffer command_buffer;
-	int staging_offset;
-	uint16_t * staging_indices = (uint16_t*)R_StagingAllocate(particle_index_buffer_size, 1, &command_buffer, &staging_buffer, &staging_offset);
-
-	for (int i=0; i < MAX_PARTICLES; ++i)
-	{
-		staging_indices[i * 6 + 0] = i * 4 + 0;
-		staging_indices[i * 6 + 1] = i * 4 + 1;
-		staging_indices[i * 6 + 2] = i * 4 + 2;
-		staging_indices[i * 6 + 3] = i * 4 + 0;
-		staging_indices[i * 6 + 4] = i * 4 + 2;
-		staging_indices[i * 6 + 5] = i * 4 + 3;
-	}
-
-	VkBufferCopy region;
-	region.srcOffset = staging_offset;
-	region.dstOffset = 0;
-	region.size = particle_index_buffer_size;
-	vkCmdCopyBuffer(command_buffer, staging_buffer, particle_index_buffer, 1, &region);
-}
 
 /*
 ===============
@@ -213,7 +146,6 @@ R_InitParticles
 void R_InitParticles (void)
 {
 	Cvar_RegisterVariable (&r_particles); //johnfitz
-	R_InitParticleIndexBuffer();
 }
 
 
@@ -752,36 +684,18 @@ void CL_RunParticles (void)
 R_FlushParticles
 ===============
 */
-void R_FlushParticles (int num_particles, basicvertex_t *vertices)
+void R_FlushParticles (int num_particles, particlevertex_t *vertices)
 {
 	VkBuffer vertex_buffer = 0;
 	VkDeviceSize vertex_buffer_offset = 0;
 
 	// allocate buffer space and copy it over
-	basicvertex_t *dst = (basicvertex_t *) R_VertexAllocate (num_particles * 4 * sizeof (basicvertex_t), &vertex_buffer, &vertex_buffer_offset);
-	memcpy (dst, vertices, num_particles * 4 * sizeof (basicvertex_t));
+	particlevertex_t *dst = (particlevertex_t *) R_VertexAllocate (num_particles * sizeof (particlevertex_t), &vertex_buffer, &vertex_buffer_offset);
+	memcpy (dst, vertices, num_particles * sizeof (particlevertex_t));
 
 	// draw
 	vulkan_globals.vk_cmd_bind_vertex_buffers (vulkan_globals.command_buffer, 0, 1, &vertex_buffer, &vertex_buffer_offset);
-	vulkan_globals.vk_cmd_draw_indexed (vulkan_globals.command_buffer, num_particles * 6, 1, 0, 0, 0);
-}
-
-
-/*
-===============
-R_ParticleVertex
-===============
-*/
-void R_ParticleVertex (basicvertex_t *vert, float *org, byte *c)
-{
-	vert->position[0] = org[0];
-	vert->position[1] = org[1];
-	vert->position[2] = org[2];
-
-	vert->color[0] = c[0];
-	vert->color[1] = c[1];
-	vert->color[2] = c[2];
-	vert->color[3] = c[3];
+	vulkan_globals.vk_cmd_draw (vulkan_globals.command_buffer, 4, num_particles, 0, 0);
 }
 
 
@@ -812,12 +726,8 @@ static void R_DrawParticlesFaces(void)
 		pt->accel[2] = (pt->dvel[2] + (pt->grav[2] * grav)) * 0.5f;
 	}
 
-	static basicvertex_t vertices[MAX_PARTICLES * 4];
+	static particlevertex_t vertices[MAX_PARTICLES];
 	int num_particles = 0;
-	int current_vertex = 0;
-
-	// index buffer is always bound
-	vulkan_globals.vk_cmd_bind_index_buffer (vulkan_globals.command_buffer, particle_index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
 	// push-constants must be 4-float aligned; we pack them tighter and unpack in the GLSL
 	float pcdata[12];
@@ -861,25 +771,17 @@ static void R_DrawParticlesFaces(void)
 		{
 			R_FlushParticles (num_particles, vertices);
 			num_particles = 0;
-			current_vertex = 0;
 		}
 
-		// move the particle in a framerate-independent manner
-		float move[3] = {
-			p->org[0] + (p->vel[0] + (pt->accel[0] * etime)) * etime,
-			p->org[1] + (p->vel[1] + (pt->accel[1] * etime)) * etime,
-			p->org[2] + (p->vel[2] + (pt->accel[2] * etime)) * etime
-		};
+		// move the particle in a framerate-independent manner (this could go to the GPU as a tradeoff vs a larger vertex struct; it's 50/50 for perf)
+		vertices[num_particles].position[0] = p->org[0] + (p->vel[0] + (pt->accel[0] * etime)) * etime;
+		vertices[num_particles].position[1] = p->org[1] + (p->vel[1] + (pt->accel[1] * etime)) * etime;
+		vertices[num_particles].position[2] = p->org[2] + (p->vel[2] + (pt->accel[2] * etime)) * etime;
 
 		// retrieve the colour
-		byte *c = (byte *) &d_8to24table[p->color];
+		vertices[num_particles].color = d_8to24table[p->color];
 
-		// emit the 4 vertices
-		R_ParticleVertex (&vertices[current_vertex++], move, c);
-		R_ParticleVertex (&vertices[current_vertex++], move, c);
-		R_ParticleVertex (&vertices[current_vertex++], move, c);
-		R_ParticleVertex (&vertices[current_vertex++], move, c);
-
+		// update counts
 		rs_particles++;
 		num_particles++;
 

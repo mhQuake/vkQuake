@@ -1648,6 +1648,21 @@ void R_CreatePipelines()
 	basic_vertex_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	basic_vertex_binding_description.stride = 24;
 
+	VkVertexInputAttributeDescription particle_vertex_input_attribute_descriptions[2];
+	particle_vertex_input_attribute_descriptions[0].binding = 0;
+	particle_vertex_input_attribute_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	particle_vertex_input_attribute_descriptions[0].location = 0;
+	particle_vertex_input_attribute_descriptions[0].offset = 0;
+	particle_vertex_input_attribute_descriptions[1].binding = 0;
+	particle_vertex_input_attribute_descriptions[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+	particle_vertex_input_attribute_descriptions[1].location = 1;
+	particle_vertex_input_attribute_descriptions[1].offset = 12;
+
+	VkVertexInputBindingDescription particle_vertex_binding_description;
+	particle_vertex_binding_description.binding = 0;
+	particle_vertex_binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+	particle_vertex_binding_description.stride = 16;
+
 	VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info;
 	memset(&vertex_input_state_create_info, 0, sizeof(vertex_input_state_create_info));
 	vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -1830,7 +1845,7 @@ void R_CreatePipelines()
 	//================
 	multisample_state_create_info.rasterizationSamples = vulkan_globals.sample_count;
 
-	input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
 	
 	depth_stencil_state_create_info.depthTestEnable = VK_TRUE;
 	depth_stencil_state_create_info.depthWriteEnable = VK_FALSE;
@@ -1843,6 +1858,12 @@ void R_CreatePipelines()
 	shader_stages[0].module = particle_vert_module;
 	shader_stages[1].module = particle_frag_module;
 
+	// change our pipeline input for instanced particles
+	vertex_input_state_create_info.vertexAttributeDescriptionCount = 2;
+	vertex_input_state_create_info.pVertexAttributeDescriptions = particle_vertex_input_attribute_descriptions;
+	vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
+	vertex_input_state_create_info.pVertexBindingDescriptions = &particle_vertex_binding_description;
+
 	assert(vulkan_globals.particle_pipeline.handle == VK_NULL_HANDLE);
 	err = vkCreateGraphicsPipelines(vulkan_globals.device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &vulkan_globals.particle_pipeline.handle);
 	if (err != VK_SUCCESS)
@@ -1850,9 +1871,18 @@ void R_CreatePipelines()
 	vulkan_globals.particle_pipeline.layout = vulkan_globals.basic_pipeline_layout;
 	GL_SetObjectName((uint64_t)vulkan_globals.particle_pipeline.handle, VK_OBJECT_TYPE_PIPELINE, "particles");
 
-	// but this back because code following here assumes they're unchanged
+	// put this back because code following here assumes they're unchanged
 	shader_stages[0].module = basic_vert_module;
 	shader_stages[1].module = basic_frag_module;
+
+	// put this back as well...
+	vertex_input_state_create_info.vertexAttributeDescriptionCount = 3;
+	vertex_input_state_create_info.pVertexAttributeDescriptions = basic_vertex_input_attribute_descriptions;
+	vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
+	vertex_input_state_create_info.pVertexBindingDescriptions = &basic_vertex_binding_description;
+
+	// and this
+	input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
 #ifdef PSET_SCRIPT
 	//================

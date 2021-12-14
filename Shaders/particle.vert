@@ -17,8 +17,7 @@ layout(push_constant) uniform PushConsts {
 } push_constants;
 
 layout (location = 0) in vec3 in_position;
-layout (location = 1) in vec2 in_scale;
-layout (location = 2) in vec4 in_color;
+layout (location = 1) in vec4 in_color;
 
 layout (location = 0) out vec4 out_texcoord;
 layout (location = 1) out vec4 out_color;
@@ -31,7 +30,7 @@ out gl_PerVertex {
 void main() 
 {
 	// recompose the corner and origin vectors
-	vec2 corners[4] = {vec2 (-1.0, -1.0), vec2 (1.0, -1.0), vec2 (1.0, 1.0), vec2 (-1.0, 1.0)};
+	vec2 corners[4] = {vec2 (-1.0, -1.0), vec2 (-1.0, 1.0), vec2 (1.0, -1.0), vec2 (1.0, 1.0)};
 	vec2 corner = corners[gl_VertexIndex % 4];
 	vec3 r_origin = vec3 (push_constants.r_origin_x, push_constants.r_origin_y, push_constants.r_origin_z);
 
