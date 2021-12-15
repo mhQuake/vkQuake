@@ -1597,6 +1597,7 @@ void R_CreatePipelines()
 	CREATE_SHADER_MODULE(alias_alphatest_frag);
 	CREATE_SHADER_MODULE(sky_layer_vert);
 	CREATE_SHADER_MODULE(sky_layer_frag);
+	CREATE_SHADER_MODULE (sky_box_vert);
 	CREATE_SHADER_MODULE(sky_box_frag);
 	CREATE_SHADER_MODULE(postprocess_vert);
 	CREATE_SHADER_MODULE(postprocess_frag);
@@ -2074,6 +2075,8 @@ void R_CreatePipelines()
 	depth_stencil_state_create_info.front.compareMask = 0xFF;
 	depth_stencil_state_create_info.front.writeMask = 0x0;
 	depth_stencil_state_create_info.front.reference = 0x1;
+
+	shader_stages[0].module = sky_box_vert_module;
 	shader_stages[1].module = sky_box_frag_module;
 
 	assert(vulkan_globals.sky_box_pipeline.handle == VK_NULL_HANDLE);
@@ -2084,30 +2087,18 @@ void R_CreatePipelines()
 
 	vulkan_globals.sky_box_pipeline.layout = vulkan_globals.basic_pipeline_layout;
 
-	VkVertexInputAttributeDescription sky_layer_vertex_input_attribute_descriptions[4];
+	VkVertexInputAttributeDescription sky_layer_vertex_input_attribute_descriptions[1];
 	sky_layer_vertex_input_attribute_descriptions[0].binding = 0;
 	sky_layer_vertex_input_attribute_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 	sky_layer_vertex_input_attribute_descriptions[0].location = 0;
 	sky_layer_vertex_input_attribute_descriptions[0].offset = 0;
-	sky_layer_vertex_input_attribute_descriptions[1].binding = 0;
-	sky_layer_vertex_input_attribute_descriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-	sky_layer_vertex_input_attribute_descriptions[1].location = 1;
-	sky_layer_vertex_input_attribute_descriptions[1].offset = 12;
-	sky_layer_vertex_input_attribute_descriptions[2].binding = 0;
-	sky_layer_vertex_input_attribute_descriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-	sky_layer_vertex_input_attribute_descriptions[2].location = 2;
-	sky_layer_vertex_input_attribute_descriptions[2].offset = 20;
-	sky_layer_vertex_input_attribute_descriptions[3].binding = 0;
-	sky_layer_vertex_input_attribute_descriptions[3].format = VK_FORMAT_R8G8B8A8_UNORM;
-	sky_layer_vertex_input_attribute_descriptions[3].location = 3;
-	sky_layer_vertex_input_attribute_descriptions[3].offset = 28;
 
 	VkVertexInputBindingDescription sky_layer_vertex_binding_description;
 	sky_layer_vertex_binding_description.binding = 0;
 	sky_layer_vertex_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	sky_layer_vertex_binding_description.stride = 32;
 
-	vertex_input_state_create_info.vertexAttributeDescriptionCount = 4;
+	vertex_input_state_create_info.vertexAttributeDescriptionCount = 1;
 	vertex_input_state_create_info.pVertexAttributeDescriptions = sky_layer_vertex_input_attribute_descriptions;
 	vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
 	vertex_input_state_create_info.pVertexBindingDescriptions = &sky_layer_vertex_binding_description;
@@ -2513,6 +2504,8 @@ void R_CreatePipelines()
 	vkDestroyShaderModule(vulkan_globals.device, postprocess_vert_module, NULL);
 	vkDestroyShaderModule(vulkan_globals.device, sky_layer_frag_module, NULL);
 	vkDestroyShaderModule(vulkan_globals.device, sky_layer_vert_module, NULL);
+	vkDestroyShaderModule (vulkan_globals.device, sky_box_frag_module, NULL);
+	vkDestroyShaderModule (vulkan_globals.device, sky_box_vert_module, NULL);
 	vkDestroyShaderModule(vulkan_globals.device, alias_frag_module, NULL);
 	vkDestroyShaderModule(vulkan_globals.device, alias_alphatest_frag_module, NULL);
 	vkDestroyShaderModule(vulkan_globals.device, alias_vert_module, NULL);

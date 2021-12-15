@@ -995,6 +995,16 @@ void Sky_DrawSkyLayers (void)
 
 	R_BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan_globals.sky_layer_pipeline);
 
+	float r_sky_consts[5] = {
+		r_refdef.vieworg[0],
+		r_refdef.vieworg[1],
+		r_refdef.vieworg[2],
+		cl.time,
+		r_skyalpha.value
+	};
+
+	R_PushConstants (VK_SHADER_STAGE_ALL_GRAPHICS, 20 * sizeof (float), 5 * sizeof (float), r_sky_consts);
+
 	VkDescriptorSet descriptor_sets[2] = { solidskytexture->descriptor_set, alphaskytexture->descriptor_set };
 	vkCmdBindDescriptorSets(vulkan_globals.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan_globals.sky_layer_pipeline.layout.handle, 0, 2, descriptor_sets, 0, NULL);
 

@@ -4,16 +4,15 @@
 
 layout(push_constant) uniform PushConsts {
 	mat4 mvp;
+	vec3 fog_color;
+	float fog_density;
+	vec3 vieworigin;
+	float cl_time;
+	float sky_alpha;
 } push_constants;
 
 layout (location = 0) in vec3 in_position;
-layout (location = 1) in vec2 in_texcoord1;
-layout (location = 2) in vec2 in_texcoord2;
-layout (location = 3) in vec4 in_color;
-
-layout (location = 0) out vec4 out_texcoord1;
-layout (location = 1) out vec4 out_texcoord2;
-layout (location = 2) out vec4 out_color;
+layout (location = 0) out vec4 out_texcoord;
 
 out gl_PerVertex {
 	vec4 gl_Position;
@@ -21,8 +20,9 @@ out gl_PerVertex {
 
 void main() 
 {
-	gl_Position = push_constants.mvp * vec4(in_position, 1.0f);
-	out_texcoord1 = vec4(in_texcoord1.xy, 0.0f, 0.0f);
-	out_texcoord2 = vec4(in_texcoord2.xy, 0.0f, 0.0f);
-	out_color = in_color;
+	// orient the sky
+	mat4 skyMatrix = mat4 (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, -push_constants.vieworigin.x, -push_constants.vieworigin.y, -push_constants.vieworigin.z * 3.0, 1.0);
+
+	gl_Position = push_constants.mvp * vec4 (in_position, 1.0f);
+	out_texcoord = vec4 (in_position, 1.0f) * skyMatrix;
 }

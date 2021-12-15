@@ -349,6 +349,9 @@
     <ClCompile Include="..\..\Shaders\Compiled\particle_vert.c">
       <Filter>Shaders\Compiled</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Shaders\Compiled\sky_box_vert.c">
+      <Filter>Shaders\Compiled</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Quake\snd_codec.h">
@@ -638,6 +641,9 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="..\..\Shaders\particle.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\..\Shaders\sky_box.vert">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
